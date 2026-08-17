@@ -1,0 +1,108 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "sglang": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "SGLang (Qwen3.8-27B)",
+      "options": {
+        "baseURL": "http://192.168.0.220:30000/v1"
+      },
+      "models": {
+        "RadixArk/Qwen3.8-27B-FP8": {
+          "name": "Qwen3.8-27B-FP8"
+        }
+      }
+    }
+  },
+  "permission": {
+    "*": "allow",
+
+    "read": {
+      "*": "allow",
+      "**/.env": "deny",
+      "**/.env.*": "deny",
+      "**/.env.example": "allow"
+    },
+
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "lsp": "allow",
+    "question": "allow",
+    "todowrite": "allow",
+    "skill": "allow",
+
+    "task": "ask",
+
+    "edit": "ask",
+
+    "external_directory": {
+      "*": "deny"
+    },
+
+    "webfetch": "allow",
+    "websearch": "allow",
+
+    "bash": {
+      "*": "allow",
+
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git branch*": "allow",
+      "git rev-parse*": "allow",
+      "git ls-files*": "allow",
+      "git check-ignore*": "allow",
+
+      "git add*": "deny",
+      "git commit*": "deny",
+      "git push*": "deny",
+      "git reset*": "deny",
+      "git restore*": "deny",
+      "git clean*": "deny",
+      "git stash*": "deny",
+      "git rebase*": "deny",
+      "git merge*": "deny",
+
+      "sudo *": "deny",
+      "su *": "deny",
+      "systemctl *": "deny",
+      "service *": "deny",
+
+      "rm *": "deny",
+      "rmdir *": "deny",
+      "shred *": "deny",
+
+      "chmod *": "deny",
+      "chown *": "deny",
+
+      "kill *": "deny",
+      "pkill *": "deny",
+      "killall *": "deny",
+
+      "apt *": "deny",
+      "apt-get *": "deny",
+      "pip install*": "deny",
+      "pip3 install*": "deny",
+      "python -m pip*": "deny",
+      "python3 -m pip*": "deny",
+
+      "curl *": "deny",
+      "wget *": "deny",
+      "ssh *": "deny",
+      "scp *": "deny",
+
+      "docker *": "ask",
+      "podman *": "deny",
+
+      "ollama *": "deny"
+    }
+  },
+
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "reserved": 12000
+  }
+}

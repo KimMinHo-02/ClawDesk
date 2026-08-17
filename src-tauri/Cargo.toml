@@ -1,0 +1,18 @@
+[package]
+name = "clawdesk"
+version = "0.0.0"
+description = "ClawDesk - OpenClaw desktop manager (Phase 0 scaffold)"
+authors = ["ClawDesk"]
+edition = "2021"
+
+[lib]
+name = "clawdesk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
