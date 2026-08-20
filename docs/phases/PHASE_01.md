@@ -1,5 +1,7 @@
 # Phase 1 — Windows Environment + OpenClaw Adapter
 
+Status: completed (2026-08-18)
+
 ## 목표
 
 Windows 실행 환경과 OpenClaw 상태를 **Rust adapter**를 통해 감지하고 structured
@@ -9,31 +11,31 @@ Windows 실행 환경과 OpenClaw 상태를 **Rust adapter**를 통해 감지하
 
 ### 1. 감지 기능 (Rust, application service → port → adapter 경유)
 
-- [ ] Windows version detect (OS build/version)
-- [ ] Windows architecture detect (x64 지원, x64 외는 unsupported structured error)
-- [ ] Node.js detect (존재 여부 + version, 부재는 structured "not found")
-- [ ] OpenClaw executable detect (존재 여부 + 경로, 부재는 structured "not found")
-- [ ] OpenClaw version (`--version` 결과 parsing)
-- [ ] Gateway status
-- [ ] Update status (latest stable 기준 "updated" / "update available" / unknown)
+- [x] Windows version detect (OS build/version)
+- [x] Windows architecture detect (x64 지원, x64 외는 unsupported structured error)
+- [x] Node.js detect (존재 여부 + version, 부재는 structured "not found")
+- [x] OpenClaw executable detect (존재 여부 + 경로, 부재는 structured "not found")
+- [x] OpenClaw version (`--version` 결과 parsing)
+- [x] Gateway status
+- [x] Update status (latest stable 기준 "updated" / "update available" / unknown)
 
 ### 2. 인터페이스
 
-- [ ] `ProcessRunner`: structured `executable + argv` spawn, timeout, exit code,
+- [x] `ProcessRunner`: structured `executable + argv` spawn, timeout, exit code,
       stdout/stderr capture, structured error type
-- [ ] `WindowsSystemPort` trait + `WindowsSystemAdapter` 구현
-- [ ] `OpenClawPort` trait + `OpenClawAdapter` 구현
-- [ ] 모든 spawn이 `ProcessRunner` 경유 (spawn 지점 단일화)
-- [ ] shell string 조합 없이 argv만 (security invariant S1/S2)
+- [x] `WindowsSystemPort` trait + `WindowsSystemAdapter` 구현
+- [x] `OpenClawPort` trait + `OpenClawAdapter` 구현
+- [x] 모든 spawn이 `ProcessRunner` 경유 (spawn 지점 단일화)
+- [x] shell string 조합 없이 argv만 (security invariant S1/S2)
 
 ### 3. 테스트 (`cargo test`, fake CLI fixture 사용)
 
-- [ ] fake CLI happy path (version/status/update status parsing)
-- [ ] malformed output (변형 stdout)
-- [ ] missing executable
-- [ ] timeout
-- [ ] non-zero exit code
-- [ ] JSON parse failure
+- [x] fake CLI happy path (version/status/update status parsing)
+- [x] malformed output (변형 stdout)
+- [x] missing executable
+- [x] timeout
+- [x] non-zero exit code
+- [x] JSON parse failure
 
 fixture 위치: `tests/fixtures/openclaw/` (Phase 0에 디렉터리만 존재, fixture는 Phase 1에서 생성)
 
@@ -45,6 +47,8 @@ fixture 위치: `tests/fixtures/openclaw/` (Phase 0에 디렉터리만 존재, f
 - `cargo fmt --check`
 
 frontend scaffold는 `pnpm typecheck` 통과를 유지한다.
+
+완료 시 실제 검증 결과 (2026-08-18): 위 명령 전부 통과, `cargo test` 58 passed / 0 failed / 0 ignored.
 
 ## Non-Goals (이 phase에서 안 하는 것)
 

@@ -1,0 +1,1 @@
+OpenClaw (build 8765) channel=stable revision=abc123
