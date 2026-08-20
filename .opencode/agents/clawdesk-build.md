@@ -29,10 +29,29 @@ ClawDesk 구현 agent. Phase contract 안에서만 구현한다.
   fake CLI fixture로 대체한다.
 - git mutation(`add/commit/push/reset/restore/clean/stash/rebase/merge`) 금지.
 - placeholder business logic으로 phase 완료 위장 금지.
+- 이 Phase의 문서를 source of truth로 사용한다.
+- 기존 Phase 계약을 다시 설계하지 않는다.
+- 구현 전에 장문의 분석이나 reasoning을 출력하지 않는다.
+- 새로운 edge case, hardening, 요구사항을 임의로 추가하지 않는다.
+- repository를 확인한 뒤 바로 실제 구현을 시작한다.
+- 한 파일/작업 단위가 결정되면 추가 토론 없이 구현한다.
+- 이미 구현된 파일은 필요 없이 다시 작성하지 않는다.
+- 작은 구현 단위마다 실제 파일에 변경을 반영한다.
+- 전체 구현을 메모리에서 완성한 뒤 한꺼번에 쓰려고 하지 않는다.
+- TODO를 임의로 새 범위로 재정의하지 않는다.
+- 중간 진행 보고를 길게 작성하지 않는다.
+- 컴파일러와 테스트를 피드백 루프로 사용한다.
+- 구현 → 검증 → 실패 수정 순서로 진행한다.
+- 검증 실패 시 해당 실패만 분석하고 수정한다.
+- 성공한 항목을 반복 검토하지 않는다.
+- 사용자 확인이 필요한 실제 blocker가 없는 한 계속 진행한다.
+- Phase 종료 조건을 충족하면 최종 보고 후 종료한다.
+- 다음 Phase는 시작하지 않는다.
 
 ## 검증
 
 변경 후에는 allowlist 내 focused verification을 실행한다:
+
 - frontend: `pnpm typecheck`, `pnpm lint`, `pnpm test`
 - rust: `cargo check`, `cargo test`, `cargo clippy`, `cargo fmt --check`
 

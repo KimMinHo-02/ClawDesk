@@ -9,6 +9,10 @@ edition = "2021"
 name = "clawdesk_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "clawdesk-fake-openclaw"
+path = "fixtures/fake-openclaw/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -16,3 +20,5 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+winreg = "0.55"
+windows = { version = "0.61", features = ["Win32_System_SystemInformation"] }
