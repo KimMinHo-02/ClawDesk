@@ -5,3 +5,4 @@ pub mod services;
 pub use services::environment::{
     default_openclaw_search_dirs, EnvironmentReport, EnvironmentService,
 };
+pub use services::install::{InstallResult, InstallService};

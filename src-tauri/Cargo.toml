@@ -13,6 +13,15 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "clawdesk-fake-openclaw"
 path = "fixtures/fake-openclaw/main.rs"
 
+[[bin]]
+name = "clawdesk-fake-npm"
+path = "fixtures/fake-npm/main.rs"
+
+[features]
+# Dedicated real-OpenClaw E2E gate (S9). Real mutation only happens when this
+# feature, the `--test real_e2e` target, and CLAWDESK_REAL_E2E=1 all hold.
+real-e2e = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

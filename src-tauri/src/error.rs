@@ -8,7 +8,10 @@ use std::fmt;
 use crate::infrastructure::masking::mask_secrets;
 
 /// Unified application error. `code` is stable and safe to compare/log.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Serialized across Tauri IPC (Phase 2 commands layer): the frontend maps
+/// the stable `code` to a user-facing message, never the raw `message`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AppError {
     /// Stable error code, e.g. `"openclaw-not-found"`.
     pub code: &'static str,
@@ -58,6 +61,47 @@ impl AppError {
 
     pub fn node_version_unavailable(message: impl Into<String>) -> Self {
         Self::new("node-version-unavailable", message)
+    }
+
+    pub fn unsupported_node_version(version: impl Into<String>) -> Self {
+        Self::new(
+            "unsupported-node-version",
+            format!(
+                "unsupported Node.js version: {} (supported: 22.22.3+, 24.15+, 25.9+, 26+)",
+                version.into()
+            ),
+        )
+    }
+
+    pub fn npm_not_found() -> Self {
+        Self::new(
+            "npm-not-found",
+            "npm was not found alongside the detected Node.js installation",
+        )
+    }
+
+    pub fn unsupported_npm_version(version: impl Into<String>) -> Self {
+        Self::new(
+            "unsupported-npm-version",
+            format!(
+                "unsupported npm version: {} (npm 11.13-11.15 cannot install OpenClaw)",
+                version.into()
+            ),
+        )
+    }
+
+    pub fn openclaw_install_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-install-failed",
+            format!("OpenClaw installation failed: {}", detail.into()),
+        )
+    }
+
+    pub fn openclaw_install_verify_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-install-verify-failed",
+            format!("OpenClaw install verification failed: {}", detail.into()),
+        )
     }
 
     pub fn openclaw_not_found() -> Self {

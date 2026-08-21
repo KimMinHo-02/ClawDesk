@@ -10,7 +10,7 @@ pub enum ExecutableDetection {
 }
 
 /// Gateway status reported by OpenClaw.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct GatewayStatus {
     /// High level state derived from the payload `ok` flag: "running" / "stopped".
     pub state: String,
@@ -32,7 +32,8 @@ pub struct OpenClawVersion {
 ///
 /// `NotFound` is a structured "not found" value. When detected, individual
 /// sub-states that could not be collected are `None` / `Unknown`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "status", rename_all = "kebab-case")]
 pub enum OpenClawStatus {
     NotFound,
     Detected {
@@ -44,7 +45,8 @@ pub enum OpenClawStatus {
 }
 
 /// Update state relative to latest stable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum UpdateState {
     /// Installed version matches latest stable.
     Updated,

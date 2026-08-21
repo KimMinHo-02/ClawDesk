@@ -56,6 +56,25 @@ impl OpenClawPort for OpenClawAdapter {
         parse_version_output(&output.stdout)
     }
 
+    fn version_from_entry(&self, node: &Path, entry: &Path) -> Result<OpenClawVersion, AppError> {
+        const LABEL: &str = "openclaw (package entry) --version";
+        let argv = vec![
+            entry.to_string_lossy().into_owned(),
+            "--version".to_string(),
+        ];
+        let request = ProcessRequest::new(node.to_path_buf(), argv, VERSION_TIMEOUT);
+        let output = match self.process.run(&request) {
+            Ok(output) => output,
+            Err(ProcessError::NotFound { .. }) => return Err(AppError::node_not_found()),
+            Err(ProcessError::Timeout { .. }) => return Err(AppError::process_timeout(LABEL)),
+            Err(ProcessError::SpawnFailed { message }) => {
+                return Err(AppError::process_failed(LABEL, message))
+            }
+        };
+        Self::require_success(&output, LABEL)?;
+        parse_version_output(&output.stdout)
+    }
+
     fn gateway_status(&self, executable: &Path) -> Result<GatewayStatus, AppError> {
         const LABEL: &str = "openclaw gateway status --json";
         let output = self.run_cli(
