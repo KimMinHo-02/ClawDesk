@@ -135,6 +135,53 @@ impl AppError {
             format!("cannot parse OpenClaw gateway status: {}", detail.into()),
         )
     }
+
+    /// S2: user input failed format validation before any process run.
+    /// The offending value is included only as a masked diagnostic.
+    pub fn invalid_input(code: &'static str, field: &str, value: &str) -> Self {
+        Self::new(code, format!("{field} is invalid: {value}"))
+    }
+
+    pub fn openclaw_config_read_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-config-read-failed",
+            format!("reading the OpenClaw config failed: {}", detail.into()),
+        )
+    }
+
+    pub fn openclaw_config_write_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-config-write-failed",
+            format!("writing the OpenClaw config failed: {}", detail.into()),
+        )
+    }
+
+    pub fn openclaw_config_invalid(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-config-invalid",
+            format!("the OpenClaw config change was rejected: {}", detail.into()),
+        )
+    }
+
+    pub fn secret_store_unavailable(detail: impl Into<String>) -> Self {
+        Self::new(
+            "secret-store-unavailable",
+            format!(
+                "the OS secret store (DPAPI) is unavailable: {}",
+                detail.into()
+            ),
+        )
+    }
+
+    pub fn secret_ref_registration_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "secret-ref-registration-failed",
+            format!(
+                "registering the API key reference failed: {}",
+                detail.into()
+            ),
+        )
+    }
 }
 
 impl fmt::Display for AppError {

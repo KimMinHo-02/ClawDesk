@@ -7,8 +7,9 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 | ----- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | 0     | Product / Harness                      | 제품 계약, security invariants, 아키텍처, OpenCode harness(agent/command), 최소 scaffold                                            | completed   |
 | 1     | Windows Environment + OpenClaw Adapter | Windows 버전/아키텍처 detect, Node detect, OpenClaw executable/version/gateway/update status, ProcessRunner, fake CLI contract test | completed   |
-| 2     | Installer                              | OpenClaw 설치 플로우 (UI + adapter). real mutation은 explicit E2E에서만 검증                                                        | not started |
-| 3     | Model / Provider / API / Reasoning     | 모델·provider·API key 관리, capability 기반 reasoning/thinking effort                                                               | not started |
+| 2     | Installer                              | OpenClaw 설치 플로우 (UI + adapter). real mutation은 explicit E2E에서만 검증                                                        | completed   |
+| 3     | Model / Provider / API / Reasoning     | 모델·provider·API key 관리, capability 기반 reasoning/thinking effort                                                               | completed   |
+| 3.1   | Phase 3 Review Revision                | F1-F4 수정: API key life-cycle 순서(DPAPI 우선) + orphan cleanup, fake protected path 모방, 계약 문서 개정, argv capture contract test | completed   |
 | 4     | Skills / Plugins                       | skills·plugins 목록과 활성화 관리                                                                                                   | not started |
 | 5     | Tools / Security                       | tool permission, security profile                                                                                                   | not started |
 | 6     | Channels                               | Discord/Telegram 채널 연결·설정                                                                                                     | not started |

@@ -3,6 +3,17 @@
 이 파일은 ClawDesk repository에서 일하는 모든 agent(OpenCode 포함)와 개발자의 전역 계약입니다.
 다른 문서와 충돌할 경우 `AGENTS.md`와 `docs/security/SECURITY_INVARIANTS.md`가 우선합니다.
 
+## 0. 원칙
+
+- 이미 구현된 기반을 재설계하거나 중복 구현하지 않는다.
+- 구현 전 장문의 계획/분석 보고를 출력하지 않는다.
+- 필요한 파일만 읽고 바로 구현한다.
+- 작은 단위로 실제 파일을 수정하고 compiler/test를 피드백 루프로 사용한다.
+- 실패한 항목만 분석·수정한다.
+- Phase 계약 밖의 요구사항, hardening, edge case를 임의로 추가하지 않는다.
+- 기존 ProcessRunner 및 security boundary를 우회하지 않는다.
+- Git mutation 명령은 실행하지 않는다.
+
 ## 1. 제품 기본
 
 - 제품명: ClawDesk
@@ -30,7 +41,7 @@
 ## 4. 범위 규율
 
 - Phase contract(`docs/phases/`) 밖의 기능 구현 금지.
-- Phase 0 종료 전 Phase 1 구현 시작 금지.
+- 해당 Phase 종료 전 다음 Phase 구현 시작 금지.
 - real OpenClaw mutation은 explicit real E2E layer(opt-in)에서만.
 
 ## 5. Git
