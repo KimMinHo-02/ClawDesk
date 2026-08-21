@@ -17,6 +17,10 @@ path = "fixtures/fake-openclaw/main.rs"
 name = "clawdesk-fake-npm"
 path = "fixtures/fake-npm/main.rs"
 
+[[bin]]
+name = "clawdesk-secret-resolver"
+path = "resolver/main.rs"
+
 [features]
 # Dedicated real-OpenClaw E2E gate (S9). Real mutation only happens when this
 # feature, the `--test real_e2e` target, and CLAWDESK_REAL_E2E=1 all hold.
@@ -30,4 +34,8 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 winreg = "0.55"
-windows = { version = "0.61", features = ["Win32_System_SystemInformation"] }
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_System_SystemInformation",
+] }

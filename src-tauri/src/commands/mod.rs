@@ -8,6 +8,8 @@
 //! Errors are returned as the unified `AppError` (stable `code` + masked
 //! `message`); infrastructure details never reach the frontend raw.
 
+pub mod models;
+
 use crate::application::{EnvironmentReport, EnvironmentService, InstallResult, InstallService};
 use crate::error::AppError;
 
