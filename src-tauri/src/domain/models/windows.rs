@@ -2,13 +2,14 @@
 
 /// Detected CPU architecture. Non-x64 is reported as a structured error,
 /// so only the supported variant exists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Architecture {
     X64,
 }
 
 /// Detected Windows version information.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct WindowsVersion {
     /// Major product version: 10 (Windows 10) or 11 (Windows 11).
     pub major_version: u32,
@@ -23,7 +24,8 @@ pub struct WindowsVersion {
 /// Node.js detection result.
 ///
 /// `NotFound` is a structured "not found" value, not an error.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "status", rename_all = "kebab-case")]
 pub enum NodeDetection {
     NotFound,
     Found { version: String },

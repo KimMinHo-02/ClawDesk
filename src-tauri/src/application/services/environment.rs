@@ -14,8 +14,8 @@ use crate::infrastructure::openclaw::OpenClawAdapter;
 use crate::infrastructure::process::ProcessRunner;
 use crate::infrastructure::windows::WindowsSystemAdapter;
 
-/// Structured snapshot of the host environment and OpenClaw state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Structured snapshot of the host environment and OpenClaw state (IPC wire type).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct EnvironmentReport {
     pub windows_version: WindowsVersion,
     pub architecture: Architecture,
@@ -133,6 +133,9 @@ mod tests {
         fn detect_node(&self) -> Result<NodeDetection, AppError> {
             self.node.clone()
         }
+        fn node_executable(&self) -> Result<PathBuf, AppError> {
+            unimplemented!("not used by EnvironmentService")
+        }
     }
 
     /// Fake OpenClaw port with fixed results.
@@ -154,6 +157,13 @@ mod tests {
             self.version
                 .clone()
                 .map(|raw| crate::domain::models::OpenClawVersion { raw })
+        }
+        fn version_from_entry(
+            &self,
+            _node: &std::path::Path,
+            _entry: &std::path::Path,
+        ) -> Result<crate::domain::models::OpenClawVersion, AppError> {
+            unimplemented!("not used by EnvironmentService")
         }
         fn gateway_status(&self, _exe: &std::path::Path) -> Result<GatewayStatus, AppError> {
             self.gateway.clone()

@@ -14,6 +14,12 @@ pub trait OpenClawPort: Send + Sync {
     /// Run `openclaw --version` and parse the version.
     fn version(&self, executable: &Path) -> Result<OpenClawVersion, AppError>;
 
+    /// Run `node <entry> --version` and parse the version.
+    ///
+    /// Uses the resolved OpenClaw package JS entry directly, so no npm shim
+    /// (`openclaw.cmd` / `.ps1` / extension-less) is ever spawned (Phase 2).
+    fn version_from_entry(&self, node: &Path, entry: &Path) -> Result<OpenClawVersion, AppError>;
+
     /// Run `openclaw gateway status --json` and parse the payload.
     fn gateway_status(&self, executable: &Path) -> Result<GatewayStatus, AppError>;
 

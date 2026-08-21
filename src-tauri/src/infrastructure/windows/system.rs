@@ -83,6 +83,30 @@ impl WindowsSystemPort for WindowsSystemAdapter {
         let version = parse_node_version(&output.stdout)?;
         Ok(NodeDetection::Found { version })
     }
+
+    fn node_executable(&self) -> Result<PathBuf, AppError> {
+        // A configured absolute path is authoritative (test/support wiring).
+        if self.node_executable.is_absolute() {
+            return if self.node_executable.is_file() {
+                Ok(self.node_executable.clone())
+            } else {
+                Err(AppError::node_not_found())
+            };
+        }
+        // Otherwise resolve `node.exe` on PATH — the same discovery the
+        // `node --version` probe relies on (spawn of the bare `node` name).
+        if let Ok(path_var) = std::env::var("PATH") {
+            for dir in std::env::split_paths(&path_var) {
+                for name in ["node.exe", "node"] {
+                    let candidate = dir.join(name);
+                    if candidate.is_file() {
+                        return Ok(candidate);
+                    }
+                }
+            }
+        }
+        Err(AppError::node_not_found())
+    }
 }
 
 /// Maps a kernel32 architecture code to the supported architecture.
