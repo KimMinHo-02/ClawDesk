@@ -25,6 +25,14 @@ use serde_json::{Map, Value};
 /// - `models list --json`
 /// - `models set <provider/model>`
 ///
+/// Phase 4 adds the skills/plugins simulation (state `skills`/`plugins`
+/// sections):
+///
+/// - `skills list --json`, `skills info <name> --json`
+/// - `plugins list --json`
+/// - `plugins enable <id>`, `plugins disable <id>` (Nix mode rejects)
+/// - `plugins inspect <id> [--runtime] --json`
+///
 /// `CLAWDESK_FAKE_CAPTURE` (file) receives one JSON array line per
 /// invocation with the exact argv, so contract tests can assert the
 /// structured command line byte-for-byte.
@@ -76,6 +84,30 @@ fn main() -> ExitCode {
     }
     if args.len() == 3 && args[0] == "models" && args[1] == "set" {
         return handle_models_set(&args[2]);
+    }
+    if matches_command(&args, &["skills", "list", "--json"]) {
+        return handle_skills_list();
+    }
+    if args.len() >= 3
+        && args[0] == "skills"
+        && args[1] == "info"
+        && args.last().map(|a| a.as_str()) == Some("--json")
+    {
+        return handle_skills_info(&args[2]);
+    }
+    if matches_command(&args, &["plugins", "list", "--json"]) {
+        return handle_plugins_list();
+    }
+    if args.len() == 3 && args[0] == "plugins" && matches!(args[1].as_str(), "enable" | "disable") {
+        return handle_plugins_toggle(&args[1], &args[2]);
+    }
+    if args.len() >= 4
+        && args[0] == "plugins"
+        && args[1] == "inspect"
+        && args.last().map(|a| a.as_str()) == Some("--json")
+    {
+        let runtime = args.iter().any(|arg| arg.as_str() == "--runtime");
+        return handle_plugins_inspect(&args[2], runtime);
     }
     eprintln!("fake-openclaw: unsupported command: {}", args.join(" "));
     ExitCode::from(2)
@@ -673,6 +705,285 @@ fn handle_models_set(model_ref: &str) -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(code) => code,
     }
+}
+
+// --- Phase 4: skills / plugins state simulation ----------------------------------
+//
+// State sections (sandbox `openclaw.json`):
+//
+// - `skills.catalog.<name>` — base skill definition (optional `description`,
+//   `source`, `eligible` (default true))
+// - `skills.entries.<name>.enabled` — the config override (default true)
+// - `plugins.catalog.<id>` — base plugin definition (optional `name`,
+//   `format`, `origin`/`source`, `version`, `dependencyStatus`, `runtime`,
+//   `diagnostics`)
+// - `plugins.entries.<id>.enabled` — the config state (default true)
+//
+// `OPENCLAW_NIX_MODE=1` makes `plugins enable/disable` reject with a
+// non-zero exit (state unchanged), mirroring the real CLI.
+
+/// Behavior overrides shared by the Phase 4 read handlers. Returns `Some`
+/// when the handler must not proceed to the normal state-based output.
+fn behavior_override() -> Option<ExitCode> {
+    match behavior() {
+        Behavior::Sleep => Some(sleep_and_exit()),
+        Behavior::Fail => Some(fail_behavior()),
+        Behavior::Malformed => {
+            // Truncated JSON with exit 0: the parse failure must surface.
+            print!(r#"{{"skills":[{{"name":"weather","enabled":tru"#);
+            Some(ExitCode::SUCCESS)
+        }
+        Behavior::NotJson => {
+            print!("skills and plugins are fine");
+            Some(ExitCode::SUCCESS)
+        }
+        Behavior::CliError => {
+            println!(r#"{{"ok":false,"error":"simulated cli error"}}"#);
+            Some(ExitCode::from(1))
+        }
+        _ => None,
+    }
+}
+
+fn handle_skills_list() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let mut rows: Vec<Value> = Vec::new();
+    if let Some(catalog) = state
+        .get("skills")
+        .and_then(|s| s.get("catalog"))
+        .and_then(|c| c.as_object())
+    {
+        let mut names: Vec<&String> = catalog.keys().collect();
+        names.sort();
+        for name in names {
+            let entry = catalog.get(name).expect("key present");
+            rows.push(skill_row(&state, name, entry));
+        }
+    }
+    println!(
+        r#"{{"ok":true,"skills":{}}}"#,
+        serde_json::to_string(&rows).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+/// One skill row: the `skills.entries.<name>.enabled` override wins over
+/// the default (true); `eligible` comes from the catalog (default true).
+fn skill_row(state: &Value, name: &str, catalog_entry: &Value) -> Value {
+    let mut row = Map::new();
+    row.insert("name".to_string(), Value::String(name.to_string()));
+    let enabled = state
+        .get("skills")
+        .and_then(|s| s.get("entries"))
+        .and_then(|e| e.get(name))
+        .and_then(|e| e.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    row.insert("enabled".to_string(), Value::Bool(enabled));
+    let eligible = catalog_entry
+        .get("eligible")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    row.insert("eligible".to_string(), Value::Bool(eligible));
+    if let Some(description) = catalog_entry.get("description").and_then(|v| v.as_str()) {
+        row.insert(
+            "description".to_string(),
+            Value::String(description.to_string()),
+        );
+    }
+    if let Some(source) = catalog_entry
+        .get("source")
+        .or_else(|| catalog_entry.get("origin"))
+        .and_then(|v| v.as_str())
+    {
+        row.insert("source".to_string(), Value::String(source.to_string()));
+    }
+    Value::Object(row)
+}
+
+fn handle_skills_info(name: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let catalog = state
+        .get("skills")
+        .and_then(|s| s.get("catalog"))
+        .and_then(|c| c.as_object());
+    match catalog.and_then(|c| c.get(name)) {
+        Some(entry) => {
+            let row = skill_row(&state, name, entry);
+            println!(
+                r#"{{"ok":true,"skill":{}}}"#,
+                serde_json::to_string(&row).unwrap_or_default()
+            );
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!("fake-openclaw: unknown skill: {name}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn handle_plugins_list() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let mut rows: Vec<Value> = Vec::new();
+    if let Some(catalog) = state
+        .get("plugins")
+        .and_then(|p| p.get("catalog"))
+        .and_then(|c| c.as_object())
+    {
+        let mut ids: Vec<&String> = catalog.keys().collect();
+        ids.sort();
+        for id in ids {
+            let entry = catalog.get(id).expect("key present");
+            let mut row = Map::new();
+            row.insert("id".to_string(), Value::String(id.clone()));
+            let enabled = state
+                .get("plugins")
+                .and_then(|p| p.get("entries"))
+                .and_then(|e| e.get(id))
+                .and_then(|e| e.get("enabled"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            row.insert("enabled".to_string(), Value::Bool(enabled));
+            for (key, wire) in [
+                ("name", "name"),
+                ("format", "format"),
+                ("origin", "origin"),
+                ("source", "origin"),
+                ("version", "version"),
+                ("dependencyStatus", "dependencyStatus"),
+            ] {
+                if let Some(value) = entry.get(key).and_then(|v| v.as_str()) {
+                    row.insert(wire.to_string(), Value::String(value.to_string()));
+                }
+            }
+            rows.push(Value::Object(row));
+        }
+    }
+    println!(
+        r#"{{"ok":true,"plugins":{}}}"#,
+        serde_json::to_string(&rows).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_plugins_toggle(action: &str, id: &str) -> ExitCode {
+    if env::var("OPENCLAW_NIX_MODE").is_ok_and(|value| value == "1") {
+        eprintln!("fake-openclaw: nix mode: plugins {action} rejected");
+        return ExitCode::from(2);
+    }
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let known = state
+        .get("plugins")
+        .and_then(|p| p.get("catalog"))
+        .and_then(|c| c.get(id))
+        .is_some();
+    if !known {
+        eprintln!("fake-openclaw: unknown plugin: {id}");
+        return ExitCode::from(2);
+    }
+    set_value(
+        &mut state,
+        &["plugins".to_string(), "entries".to_string(), id.to_string()],
+        Value::Object(Map::from_iter([(
+            "enabled".to_string(),
+            Value::Bool(action == "enable"),
+        )])),
+    );
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{},"enabled":{}}}"#,
+        serde_json::to_string(id).unwrap_or_default(),
+        action == "enable"
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_plugins_inspect(id: &str, runtime: bool) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let catalog = state
+        .get("plugins")
+        .and_then(|p| p.get("catalog"))
+        .and_then(|c| c.as_object());
+    let entry = match catalog.and_then(|c| c.get(id)) {
+        Some(entry) => entry,
+        None => {
+            eprintln!("fake-openclaw: unknown plugin: {id}");
+            return ExitCode::from(2);
+        }
+    };
+    let enabled = state
+        .get("plugins")
+        .and_then(|p| p.get("entries"))
+        .and_then(|e| e.get(id))
+        .and_then(|e| e.get("enabled"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let mut out = Map::new();
+    out.insert("ok".to_string(), Value::Bool(true));
+    out.insert("id".to_string(), Value::String(id.to_string()));
+    if let Some(name) = entry.get("name").and_then(|v| v.as_str()) {
+        out.insert("name".to_string(), Value::String(name.to_string()));
+    }
+    out.insert("enabled".to_string(), Value::Bool(enabled));
+    if runtime {
+        let mut surfaces = Map::new();
+        for key in [
+            "tools",
+            "hooks",
+            "services",
+            "cliCommands",
+            "gatewayMethods",
+            "routes",
+        ] {
+            surfaces.insert(
+                key.to_string(),
+                entry
+                    .get("runtime")
+                    .and_then(|r| r.get(key))
+                    .cloned()
+                    .unwrap_or_else(|| Value::Array(Vec::new())),
+            );
+        }
+        out.insert("runtime".to_string(), Value::Object(surfaces));
+        if let Some(diagnostics) = entry.get("diagnostics") {
+            out.insert("diagnostics".to_string(), diagnostics.clone());
+        }
+    }
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(out)).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
 }
 
 // --- shared helpers ------------------------------------------------------------

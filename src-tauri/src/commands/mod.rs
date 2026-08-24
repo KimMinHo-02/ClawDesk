@@ -9,6 +9,8 @@
 //! `message`); infrastructure details never reach the frontend raw.
 
 pub mod models;
+pub mod plugins;
+pub mod skills;
 
 use crate::application::{EnvironmentReport, EnvironmentService, InstallResult, InstallService};
 use crate::error::AppError;

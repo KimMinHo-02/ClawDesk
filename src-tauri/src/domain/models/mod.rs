@@ -6,6 +6,7 @@ pub mod install;
 #[allow(clippy::module_inception)]
 pub mod models;
 pub mod openclaw;
+pub mod skills;
 pub mod windows;
 
 pub use install::{NpmEntry, ResolvedOpenClawEntry};
@@ -19,4 +20,5 @@ pub use models::{
 pub use openclaw::{
     ExecutableDetection, GatewayStatus, OpenClawStatus, OpenClawVersion, UpdateState,
 };
+pub use skills::{validate_plugin_id, validate_skill_name, PluginRow, PluginRuntime, SkillRow};
 pub use windows::{Architecture, NodeDetection, WindowsVersion};

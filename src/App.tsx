@@ -1,5 +1,7 @@
 import { ModelsFeature } from "./features/models/ModelsFeature";
+import { PluginsFeature } from "./features/plugins/PluginsFeature";
 import { SetupFeature } from "./features/setup/SetupFeature";
+import { SkillsFeature } from "./features/skills/SkillsFeature";
 import { getStrings } from "./i18n/ko";
 
 const app = getStrings("app");
@@ -11,6 +13,8 @@ function App() {
       <p>{app.subtitle}</p>
       <SetupFeature />
       <ModelsFeature />
+      <SkillsFeature />
+      <PluginsFeature />
     </main>
   );
 }
