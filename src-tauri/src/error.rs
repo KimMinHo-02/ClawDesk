@@ -163,6 +163,45 @@ impl AppError {
         )
     }
 
+    /// S2: skill name failed format validation before any process run.
+    pub fn skill_name_invalid(name: &str) -> Self {
+        Self::invalid_input("skill-name-invalid", "skill name", name)
+    }
+
+    /// The toggle target skill is not in the `skills list` output; no config
+    /// write is attempted.
+    pub fn skill_not_found(name: &str) -> Self {
+        Self::new("skill-not-found", format!("skill not found: {name}"))
+    }
+
+    /// S2: plugin id failed format validation before any process run.
+    pub fn plugin_id_invalid(id: &str) -> Self {
+        Self::invalid_input("plugin-id-invalid", "plugin id", id)
+    }
+
+    pub fn openclaw_skills_read_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-skills-read-failed",
+            format!("reading the OpenClaw skills failed: {}", detail.into()),
+        )
+    }
+
+    pub fn openclaw_plugins_read_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-plugins-read-failed",
+            format!("reading the OpenClaw plugins failed: {}", detail.into()),
+        )
+    }
+
+    /// `openclaw plugins enable/disable <id>` exited non-zero (unknown id,
+    /// Nix-mode rejection, ...). The actual state must be re-queried.
+    pub fn openclaw_plugin_toggle_failed(id: &str, detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-plugin-toggle-failed",
+            format!("enabling/disabling plugin {id} failed: {}", detail.into()),
+        )
+    }
+
     pub fn secret_store_unavailable(detail: impl Into<String>) -> Self {
         Self::new(
             "secret-store-unavailable",

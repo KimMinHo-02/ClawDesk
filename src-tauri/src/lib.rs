@@ -26,7 +26,12 @@ pub fn run() {
             commands::models::set_reasoning_default,
             commands::models::set_provider_api_key,
             commands::models::delete_provider_api_key,
-            commands::models::list_api_keys
+            commands::models::list_api_keys,
+            commands::skills::list_skills,
+            commands::skills::set_skill_enabled,
+            commands::plugins::list_plugins,
+            commands::plugins::set_plugin_enabled,
+            commands::plugins::get_plugin_runtime
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

@@ -26,6 +26,11 @@ export const COMMANDS = {
   setProviderApiKey: "set-provider-api-key",
   deleteProviderApiKey: "delete-provider-api-key",
   listApiKeys: "list-api-keys",
+  listSkills: "list-skills",
+  setSkillEnabled: "set-skill-enabled",
+  listPlugins: "list-plugins",
+  setPluginEnabled: "set-plugin-enabled",
+  getPluginRuntime: "get-plugin-runtime",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -179,6 +184,46 @@ export interface ProviderInput {
   models?: ModelInput[];
 }
 
+// --- Phase 4 wire types ------------------------------------------------------
+//
+// Row fields the CLI may omit are optional (`null` → `undefined`/omitted);
+// the UI degrades gracefully (fail-soft, contract §1/§2).
+
+/** One row of `openclaw skills list --json`. */
+export interface SkillRow {
+  name: string;
+  /** Configured state (`skills.entries.<name>.enabled`); null when absent. */
+  enabled?: boolean | null;
+  /** Load-time eligibility (`requires` gating); null when absent. */
+  eligible?: boolean | null;
+  description?: string | null;
+  /** Load source (`workspace`, `bundled`, ...), when reported. */
+  source?: string | null;
+}
+
+/** One row of `openclaw plugins list --json` (cold read). */
+export interface PluginRow {
+  id: string;
+  enabled?: boolean | null;
+  name?: string | null;
+  format?: string | null;
+  origin?: string | null;
+  version?: string | null;
+  dependencyStatus?: string | null;
+}
+
+/** Live runtime surface of one plugin (`plugins inspect --runtime --json`). */
+export interface PluginRuntime {
+  id: string;
+  tools: string[];
+  hooks: string[];
+  services: string[];
+  cliCommands: string[];
+  gatewayMethods: string[];
+  routes: string[];
+  diagnostics?: string[] | null;
+}
+
 /**
  * Unified Rust `AppError` serialized across IPC: stable machine-readable
  * `code` plus a masked `message` (S3/S8). The frontend maps `code` to a
@@ -292,4 +337,46 @@ export async function deleteProviderApiKey(providerId: string): Promise<void> {
 /** `list-api-keys`: registration state of managed keys (non-secret). */
 export async function listApiKeys(): Promise<ApiKeyStatus[]> {
   return invoke<ApiKeyStatus[]>(COMMANDS.listApiKeys);
+}
+
+// --- Phase 4 command wrappers ------------------------------------------------
+
+/** `list-skills`: all skills (`openclaw skills list --json`, read-only). */
+export async function listSkills(): Promise<SkillRow[]> {
+  return invoke<SkillRow[]>(COMMANDS.listSkills);
+}
+
+/** `set-skill-enabled`: toggles `skills.entries.<name>.enabled`.
+ *
+ * Applies from the next new session; the UI re-queries after the response.
+ */
+export async function setSkillEnabled(
+  skillName: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke<void>(COMMANDS.setSkillEnabled, { skillName, enabled });
+}
+
+/** `list-plugins`: the cold plugin inventory (read-only). */
+export async function listPlugins(): Promise<PluginRow[]> {
+  return invoke<PluginRow[]>(COMMANDS.listPlugins);
+}
+
+/** `set-plugin-enabled`: `openclaw plugins enable/disable <id>`.
+ *
+ * On failure the UI re-queries `list-plugins` (no optimistic updates).
+ */
+export async function setPluginEnabled(
+  pluginId: string,
+  enabled: boolean,
+): Promise<void> {
+  return invoke<void>(COMMANDS.setPluginEnabled, { pluginId, enabled });
+}
+
+/** `get-plugin-runtime`: live runtime surface of one plugin (on-demand).
+ *
+ * This loads plugin modules, so it must not run while loading the list.
+ */
+export async function getPluginRuntime(pluginId: string): Promise<PluginRuntime> {
+  return invoke<PluginRuntime>(COMMANDS.getPluginRuntime, { pluginId });
 }

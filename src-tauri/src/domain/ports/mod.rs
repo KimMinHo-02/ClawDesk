@@ -3,6 +3,8 @@
 pub mod installer;
 pub mod openclaw;
 pub mod openclaw_config;
+pub mod openclaw_plugins;
+pub mod openclaw_skills;
 pub mod process;
 pub mod secrets;
 pub mod windows_system;
@@ -10,6 +12,8 @@ pub mod windows_system;
 pub use installer::OpenClawInstallerPort;
 pub use openclaw::OpenClawPort;
 pub use openclaw_config::{OpenClawConfigPort, WriteMode};
+pub use openclaw_plugins::OpenClawPluginsPort;
+pub use openclaw_skills::OpenClawSkillsPort;
 pub use process::{ProcessError, ProcessOutput, ProcessPort, ProcessRequest};
 pub use secrets::{is_valid_key_id, SecretStorePort};
 pub use windows_system::WindowsSystemPort;

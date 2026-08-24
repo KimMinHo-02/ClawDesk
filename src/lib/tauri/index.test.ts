@@ -9,9 +9,14 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
   COMMANDS,
   detectEnvironment,
+  getPluginRuntime,
   installOpenClaw,
   isTauriAppError,
+  listPlugins,
+  listSkills,
   normalizeAppError,
+  setPluginEnabled,
+  setSkillEnabled,
   type EnvironmentReport,
 } from "./index";
 
@@ -26,6 +31,11 @@ describe("COMMANDS", () => {
   it("uses the kebab-case frontend command names (single source)", () => {
     expect(COMMANDS.detectEnvironment).toBe("detect-environment");
     expect(COMMANDS.installOpenClaw).toBe("install-openclaw");
+    expect(COMMANDS.listSkills).toBe("list-skills");
+    expect(COMMANDS.setSkillEnabled).toBe("set-skill-enabled");
+    expect(COMMANDS.listPlugins).toBe("list-plugins");
+    expect(COMMANDS.setPluginEnabled).toBe("set-plugin-enabled");
+    expect(COMMANDS.getPluginRuntime).toBe("get-plugin-runtime");
   });
 });
 
@@ -58,6 +68,62 @@ describe("installOpenClaw", () => {
     const result = { status: "already-installed" as const, version: "2026.7.0" };
     mockInvoke.mockResolvedValueOnce(result);
     await expect(installOpenClaw()).resolves.toBe(result);
+  });
+});
+
+describe("Phase 4 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("listSkills invokes list-skills without arguments", async () => {
+    const rows = [{ name: "weather", enabled: true, eligible: true }];
+    mockInvoke.mockResolvedValueOnce(rows);
+    await expect(listSkills()).resolves.toBe(rows);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("list-skills");
+  });
+
+  it("setSkillEnabled invokes set-skill-enabled with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setSkillEnabled("weather", false)).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-skill-enabled", {
+      skillName: "weather",
+      enabled: false,
+    });
+  });
+
+  it("listPlugins invokes list-plugins without arguments", async () => {
+    const rows = [{ id: "@openclaw/discord", enabled: true }];
+    mockInvoke.mockResolvedValueOnce(rows);
+    await expect(listPlugins()).resolves.toBe(rows);
+    expect(mockInvoke).toHaveBeenCalledWith("list-plugins");
+  });
+
+  it("setPluginEnabled invokes set-plugin-enabled with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setPluginEnabled("@openclaw/discord", true)).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-plugin-enabled", {
+      pluginId: "@openclaw/discord",
+      enabled: true,
+    });
+  });
+
+  it("getPluginRuntime invokes get-plugin-runtime and resolves the wire shape", async () => {
+    const runtime = {
+      id: "@openclaw/discord",
+      tools: ["discord_send"],
+      hooks: [],
+      services: ["discord"],
+      cliCommands: [],
+      gatewayMethods: ["discord.connect"],
+      routes: [],
+    };
+    mockInvoke.mockResolvedValueOnce(runtime);
+    await expect(getPluginRuntime("@openclaw/discord")).resolves.toBe(runtime);
+    expect(mockInvoke).toHaveBeenCalledWith("get-plugin-runtime", {
+      pluginId: "@openclaw/discord",
+    });
   });
 });
 

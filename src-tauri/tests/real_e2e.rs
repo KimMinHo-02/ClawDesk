@@ -54,6 +54,28 @@ fn real_openclaw_config_flow() {
     }
 }
 
+/// Phase 4 skills/plugins flow against the real OpenClaw — same triple gate.
+///
+/// Read-only for the user's state: only a test-owned skill entry
+/// (`clawdesk-e2e-<timestamp>`) is created and removed. No existing skill
+/// or plugin is toggled, installed, or updated; `plugins inspect --runtime`
+/// is a read-only live probe of one installed plugin.
+#[test]
+fn real_openclaw_skills_plugins_flow() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (skills/plugins): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::skills_plugins_flow();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (skills/plugins): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
@@ -199,6 +221,134 @@ mod real {
             "test-owned provider must be gone after delete"
         );
         eprintln!("real E2E (config): test-owned provider round-trip OK");
+    }
+
+    /// Phase 4: skills/plugins row schema baseline + a test-owned skill
+    /// entry round-trip + a read-only runtime inspect of one installed
+    /// plugin.
+    ///
+    /// Only the test-owned entry `skills.entries.clawdesk-e2e-<timestamp>`
+    /// is created and removed. Existing skills/plugins are never modified.
+    pub fn skills_plugins_flow() {
+        use clawdesk_lib::domain::ports::openclaw_config::{OpenClawConfigPort, WriteMode};
+        use clawdesk_lib::domain::ports::openclaw_plugins::OpenClawPluginsPort;
+        use clawdesk_lib::domain::ports::openclaw_skills::OpenClawSkillsPort;
+        use clawdesk_lib::infrastructure::openclaw::{
+            OpenClawConfigAdapter, OpenClawPluginsAdapter, OpenClawSkillsAdapter,
+        };
+
+        let environment = EnvironmentService::production();
+        let report = environment
+            .detect_environment()
+            .expect("environment detection for skills/plugins E2E");
+        let OpenClawStatus::Detected {
+            executable,
+            version,
+            ..
+        } = &report.openclaw
+        else {
+            eprintln!("real E2E (skills/plugins): NOT-RUN (OpenClaw not detected)");
+            return;
+        };
+        eprintln!(
+            "real E2E (skills/plugins): OpenClaw detected (version: {:?})",
+            version
+        );
+
+        let exe: &Path = Path::new(executable);
+        let skills = OpenClawSkillsAdapter::new(Arc::new(ProcessRunner));
+        let plugins = OpenClawPluginsAdapter::new(Arc::new(ProcessRunner));
+        let config = OpenClawConfigAdapter::new(Arc::new(ProcessRunner));
+
+        // Row schema baselines (informational — a live schema change must
+        // not fail the flow, so failures are reported, not asserted).
+        match skills.list_skills(exe) {
+            Ok(rows) => eprintln!(
+                "real E2E (skills): skills list parsed rows={} first={:?}",
+                rows.len(),
+                rows.first().map(|row| &row.name)
+            ),
+            Err(err) => eprintln!("real E2E (skills): skills list NOT-VERIFIED ({})", err),
+        }
+        match plugins.list_plugins(exe) {
+            Ok(rows) => eprintln!(
+                "real E2E (plugins): plugins list parsed rows={} first={:?}",
+                rows.len(),
+                rows.first().map(|row| &row.id)
+            ),
+            Err(err) => eprintln!("real E2E (plugins): plugins list NOT-VERIFIED ({})", err),
+        }
+
+        // Test-owned skill entry round-trip: set → verify → unset.
+        let entry = format!(
+            "clawdesk-e2e-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        );
+        let leaf = format!("skills.entries.{entry}.enabled");
+        config
+            .write(exe, &leaf, "true", WriteMode::Plain)
+            .unwrap_or_else(|err| panic!("test-owned skill entry set failed: {err}"));
+        let read_back = config
+            .read_raw(exe, &leaf)
+            .expect("test-owned skill entry read")
+            .unwrap_or_else(|| panic!("test-owned skill entry missing after set"));
+        assert!(
+            read_back == "true",
+            "test-owned skill entry must read back as true, got {read_back}"
+        );
+        config
+            .unset(exe, &leaf)
+            .unwrap_or_else(|err| panic!("test-owned skill entry unset failed: {err}"));
+        // The entry object may remain empty or be cleaned up by the CLI —
+        // remove it explicitly when it still exists.
+        if config
+            .read_raw(exe, &format!("skills.entries.{entry}"))
+            .expect("test-owned entry read after unset")
+            .is_some()
+        {
+            config
+                .unset(exe, &format!("skills.entries.{entry}"))
+                .unwrap_or_else(|err| panic!("test-owned entry object unset failed: {err}"));
+        }
+        assert!(
+            config
+                .read_raw(exe, &format!("skills.entries.{entry}"))
+                .expect("final test-owned entry read")
+                .is_none(),
+            "test-owned skill entry must be gone after cleanup"
+        );
+        eprintln!("real E2E (skills): test-owned entry round-trip OK");
+
+        // Read-only runtime inspect of one installed plugin (state 0 change).
+        match plugins.list_plugins(exe) {
+            Ok(rows) if !rows.is_empty() => {
+                let target = rows[0].id.clone();
+                match plugins.inspect_plugin_runtime(exe, &target) {
+                    Ok(runtime) => eprintln!(
+                        "real E2E (plugins): runtime inspect OK id={} tools={} hooks={} services={} cliCommands={} gatewayMethods={} routes={}",
+                        runtime.id,
+                        runtime.tools.len(),
+                        runtime.hooks.len(),
+                        runtime.services.len(),
+                        runtime.cli_commands.len(),
+                        runtime.gateway_methods.len(),
+                        runtime.routes.len()
+                    ),
+                    Err(err) => eprintln!(
+                        "real E2E (plugins): runtime inspect NOT-VERIFIED ({err})"
+                    ),
+                }
+            }
+            Ok(_) => {
+                eprintln!("real E2E (plugins): no installed plugins (inspect NOT-VERIFIED)");
+            }
+            Err(err) => {
+                eprintln!("real E2E (plugins): plugins list NOT-VERIFIED ({err}); inspect skipped")
+            }
+        }
     }
 
     /// Prints the config-schema baseline observations (informational).
