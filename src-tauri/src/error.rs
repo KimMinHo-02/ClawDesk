@@ -221,6 +221,74 @@ impl AppError {
             ),
         )
     }
+
+    // --- Phase 5: tools / security -------------------------------------------
+
+    /// S2: the tool profile value failed the enum validation before any
+    /// process run.
+    pub fn tool_profile_invalid(profile: &str) -> Self {
+        Self::invalid_input("tool-profile-invalid", "tool profile", profile)
+    }
+
+    /// S2: an allow/deny entry failed format validation before any process
+    /// run.
+    pub fn tool_entry_invalid(entry: &str) -> Self {
+        Self::invalid_input("tool-entry-invalid", "tool entry", entry)
+    }
+
+    /// S2: the exec mode value failed the enum validation before any
+    /// process run.
+    pub fn exec_mode_invalid(mode: &str) -> Self {
+        Self::invalid_input("exec-mode-invalid", "exec mode", mode)
+    }
+
+    /// S2: a security profile id failed the slug validation.
+    pub fn security_profile_id_invalid(id: &str) -> Self {
+        Self::invalid_input("security-profile-id-invalid", "profile id", id)
+    }
+
+    /// S2: a security profile display name failed validation (1–50 chars,
+    /// no control characters).
+    pub fn security_profile_name_invalid(name: &str) -> Self {
+        Self::invalid_input("security-profile-name-invalid", "profile name", name)
+    }
+
+    /// The referenced profile id is not a builtin or a stored user profile
+    /// (includes delete/edit attempts against builtin ids).
+    pub fn security_profile_not_found(id: &str) -> Self {
+        Self::new(
+            "security-profile-not-found",
+            format!("profile not found: {id}"),
+        )
+    }
+
+    /// A new profile id collides with a builtin profile id.
+    pub fn security_profile_conflict(id: &str) -> Self {
+        Self::new(
+            "security-profile-conflict",
+            format!("profile id already exists: {id}"),
+        )
+    }
+
+    /// The ClawDesk-owned security profile store failed to read/write.
+    pub fn security_profile_store_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "security-profile-store-failed",
+            format!(
+                "reading/writing the security profile store failed: {}",
+                detail.into()
+            ),
+        )
+    }
+
+    /// `openclaw security audit --json` failed (run or parse). The audit
+    /// result is unknown — the UI must not assume a clean state.
+    pub fn openclaw_security_audit_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-security-audit-failed",
+            format!("the security audit failed: {}", detail.into()),
+        )
+    }
 }
 
 impl fmt::Display for AppError {

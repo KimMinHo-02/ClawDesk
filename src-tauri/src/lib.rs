@@ -31,7 +31,17 @@ pub fn run() {
             commands::skills::set_skill_enabled,
             commands::plugins::list_plugins,
             commands::plugins::set_plugin_enabled,
-            commands::plugins::get_plugin_runtime
+            commands::plugins::get_plugin_runtime,
+            commands::tools::get_tool_policy,
+            commands::tools::set_tool_profile,
+            commands::tools::set_tool_allow,
+            commands::tools::set_tool_deny,
+            commands::tools::set_exec_mode,
+            commands::security::list_security_profiles,
+            commands::security::save_security_profile,
+            commands::security::delete_security_profile,
+            commands::security::apply_security_profile,
+            commands::security::run_security_audit
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

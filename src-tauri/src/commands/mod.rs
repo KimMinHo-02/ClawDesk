@@ -10,7 +10,9 @@
 
 pub mod models;
 pub mod plugins;
+pub mod security;
 pub mod skills;
+pub mod tools;
 
 use crate::application::{EnvironmentReport, EnvironmentService, InstallResult, InstallService};
 use crate::error::AppError;

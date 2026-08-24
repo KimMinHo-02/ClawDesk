@@ -33,6 +33,12 @@ use serde_json::{Map, Value};
 /// - `plugins enable <id>`, `plugins disable <id>` (Nix mode rejects)
 /// - `plugins inspect <id> [--runtime] --json`
 ///
+/// Phase 5 adds the cold security audit (read-only, no credentials):
+///
+/// - `security audit --json` (state-derived findings +
+///   `securityAudit.findings`/`suppressedFindings` passthrough;
+///   `--deep`/`--fix`/`--token`/`--password` are rejected)
+///
 /// `CLAWDESK_FAKE_CAPTURE` (file) receives one JSON array line per
 /// invocation with the exact argv, so contract tests can assert the
 /// structured command line byte-for-byte.
@@ -94,6 +100,22 @@ fn main() -> ExitCode {
         && args.last().map(|a| a.as_str()) == Some("--json")
     {
         return handle_skills_info(&args[2]);
+    }
+    if args.len() >= 3
+        && args[0] == "security"
+        && args[1] == "audit"
+        && args.iter().any(|a| a.as_str() == "--json")
+    {
+        // The cold audit never takes `--deep`/`--fix` (non-goals) or
+        // credentials; reject them like the real CLI would.
+        if args
+            .iter()
+            .any(|arg| matches!(arg.as_str(), "--deep" | "--fix" | "--token" | "--password"))
+        {
+            eprintln!("fake-openclaw: security audit rejects --deep/--fix/--token/--password");
+            return ExitCode::from(2);
+        }
+        return handle_security_audit();
     }
     if matches_command(&args, &["plugins", "list", "--json"]) {
         return handle_plugins_list();
@@ -984,6 +1006,94 @@ fn handle_plugins_inspect(id: &str, runtime: bool) -> ExitCode {
         serde_json::to_string(&Value::Object(out)).unwrap_or_default()
     );
     ExitCode::SUCCESS
+}
+
+// --- Phase 5: security audit state simulation ----------------------------------
+//
+// State sections (sandbox `openclaw.json`):
+//
+// - `tools.exec.mode` — drives the derived finding: `"full"` or unset →
+//   `tools.exec.security_full_configured` (warn)
+// - `securityAudit.findings` — passthrough finding rows (`checkId` required,
+//   the rest optional)
+// - `securityAudit.suppressedFindings` — passthrough (display count only)
+
+fn handle_security_audit() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let mut findings: Vec<Value> = Vec::new();
+    let exec_mode = state
+        .get("tools")
+        .and_then(|t| t.get("exec"))
+        .and_then(|e| e.get("mode"))
+        .and_then(|m| m.as_str());
+    if !matches!(exec_mode, Some("deny" | "allowlist" | "ask" | "auto")) {
+        // `"full"` or unset: the no-approval gate warning (derived finding).
+        let mut row = Map::new();
+        row.insert(
+            "checkId".to_string(),
+            Value::String("tools.exec.security_full_configured".to_string()),
+        );
+        row.insert("severity".to_string(), Value::String("warn".to_string()));
+        row.insert(
+            "title".to_string(),
+            Value::String("Exec can run without approval".to_string()),
+        );
+        row.insert(
+            "detail".to_string(),
+            Value::String("tools.exec.mode is \"full\" or unset".to_string()),
+        );
+        findings.push(Value::Object(row));
+    }
+    if let Some(pass_through) = state
+        .get("securityAudit")
+        .and_then(|s| s.get("findings"))
+        .and_then(|f| f.as_array())
+    {
+        findings.extend(pass_through.iter().cloned());
+    }
+    let suppressed = state
+        .get("securityAudit")
+        .and_then(|s| s.get("suppressedFindings"))
+        .cloned()
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let summary = Map::from_iter([
+        ("total".to_string(), Value::from(findings.len())),
+        (
+            "critical".to_string(),
+            Value::from(count_severity(&findings, "critical")),
+        ),
+        (
+            "warn".to_string(),
+            Value::from(count_severity(&findings, "warn")),
+        ),
+        (
+            "info".to_string(),
+            Value::from(count_severity(&findings, "info")),
+        ),
+    ]);
+    let mut out = Map::new();
+    out.insert("ok".to_string(), Value::Bool(true));
+    out.insert("findings".to_string(), Value::Array(findings));
+    out.insert("summary".to_string(), Value::Object(summary));
+    out.insert("suppressedFindings".to_string(), suppressed);
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(out)).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn count_severity(findings: &[Value], severity: &str) -> u64 {
+    findings
+        .iter()
+        .filter(|row| row.get("severity").and_then(|s| s.as_str()) == Some(severity))
+        .count() as u64
 }
 
 // --- shared helpers ------------------------------------------------------------

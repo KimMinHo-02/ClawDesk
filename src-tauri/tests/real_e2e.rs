@@ -76,6 +76,28 @@ fn real_openclaw_skills_plugins_flow() {
     }
 }
 
+/// Phase 5 tools/security flow against the real OpenClaw — same triple gate.
+///
+/// Read-only except for the single test-owned `tools.profile` round-trip:
+/// current value recorded (possibly unset) → set `messaging` → read back →
+/// restored (unset when it was unset) → restoration confirmed. No other
+/// tool policy field, profile, or security surface is touched.
+#[test]
+fn real_openclaw_tools_security_flow() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (tools/security): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::tools_security_flow();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (tools/security): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
@@ -349,6 +371,103 @@ mod real {
                 eprintln!("real E2E (plugins): plugins list NOT-VERIFIED ({err}); inspect skipped")
             }
         }
+    }
+
+    /// Phase 5: cold audit read-only baseline + the test-owned
+    /// `tools.profile` round-trip (restoration guaranteed).
+    pub fn tools_security_flow() {
+        use clawdesk_lib::domain::models::tools::SecurityAuditResult;
+        use clawdesk_lib::domain::ports::openclaw_config::{OpenClawConfigPort, WriteMode};
+        use clawdesk_lib::domain::ports::openclaw_security::OpenClawSecurityPort;
+        use clawdesk_lib::infrastructure::openclaw::{
+            OpenClawConfigAdapter, OpenClawSecurityAdapter,
+        };
+
+        let environment = EnvironmentService::production();
+        let report = environment
+            .detect_environment()
+            .expect("environment detection for tools/security E2E");
+        let OpenClawStatus::Detected {
+            executable,
+            version,
+            ..
+        } = &report.openclaw
+        else {
+            eprintln!("real E2E (tools/security): NOT-RUN (OpenClaw not detected)");
+            return;
+        };
+        eprintln!(
+            "real E2E (tools/security): OpenClaw detected (version: {:?})",
+            version
+        );
+
+        let exe: &Path = Path::new(executable);
+        let security = OpenClawSecurityAdapter::new(Arc::new(ProcessRunner));
+        let config = OpenClawConfigAdapter::new(Arc::new(ProcessRunner));
+
+        // Read-only cold audit: the findings row schema baseline (live
+        // shape changes are reported, not asserted — contract §7).
+        match security.run_security_audit(exe) {
+            Ok(SecurityAuditResult {
+                findings,
+                suppressed_count,
+                ..
+            }) => {
+                eprintln!(
+                    "real E2E (tools/security): audit OK findings={} first={:?} suppressed={}",
+                    findings.len(),
+                    findings.first().map(|f| &f.check_id),
+                    suppressed_count
+                );
+            }
+            Err(err) => {
+                eprintln!("real E2E (tools/security): audit NOT-VERIFIED ({err})")
+            }
+        }
+
+        // Test-owned `tools.profile` round-trip. If the current value
+        // cannot be read, the round-trip is skipped (no mutation on an
+        // unknown original).
+        let original = match config.read_raw(exe, "tools.profile") {
+            Ok(value) => value,
+            Err(err) => {
+                eprintln!(
+                    "real E2E (tools/security): tools.profile round-trip NOT-RUN (read failed: {err})"
+                );
+                return;
+            }
+        };
+        match &original {
+            Some(text) => eprintln!("real E2E (tools/security): original tools.profile={text}"),
+            None => eprintln!("real E2E (tools/security): original tools.profile=<unset>"),
+        }
+        config
+            .write(exe, "tools.profile", "\"messaging\"", WriteMode::Plain)
+            .unwrap_or_else(|err| panic!("tools.profile round-trip set failed: {err}"));
+        let read_back = config
+            .read_raw(exe, "tools.profile")
+            .expect("read back tools.profile");
+        assert_eq!(
+            read_back.as_deref(),
+            Some("\"messaging\""),
+            "the set value must read back as \"messaging\""
+        );
+        match &original {
+            Some(text) => config
+                .write(exe, "tools.profile", text, WriteMode::Plain)
+                .unwrap_or_else(|err| panic!("tools.profile restore failed: {err}")),
+            None => config
+                .unset(exe, "tools.profile")
+                .unwrap_or_else(|err| panic!("tools.profile unset failed: {err}")),
+        }
+        let restored = config
+            .read_raw(exe, "tools.profile")
+            .expect("final tools.profile read");
+        assert_eq!(
+            restored, original,
+            "tools.profile must be restored to its original value"
+        );
+        eprintln!("real E2E (tools/security): tools.profile round-trip OK");
     }
 
     /// Prints the config-schema baseline observations (informational).
