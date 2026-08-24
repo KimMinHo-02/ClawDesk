@@ -7,6 +7,7 @@ pub mod install;
 pub mod models;
 pub mod openclaw;
 pub mod skills;
+pub mod tools;
 pub mod windows;
 
 pub use install::{NpmEntry, ResolvedOpenClawEntry};
@@ -21,4 +22,10 @@ pub use openclaw::{
     ExecutableDetection, GatewayStatus, OpenClawStatus, OpenClawVersion, UpdateState,
 };
 pub use skills::{validate_plugin_id, validate_skill_name, PluginRow, PluginRuntime, SkillRow};
+pub use tools::{
+    builtin_profiles, find_matching_profile, is_builtin_profile_id, parse_audit_document,
+    parse_findings, parse_tool_policy, suppressed_count, validate_exec_mode, validate_profile,
+    validate_profile_name, validate_profile_slug, validate_tool_entry, validate_tool_profile,
+    SecurityAuditResult, SecurityFinding, SecurityProfile, ToolPolicy,
+};
 pub use windows::{Architecture, NodeDetection, WindowsVersion};

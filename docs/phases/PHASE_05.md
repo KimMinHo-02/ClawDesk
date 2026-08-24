@@ -1,6 +1,6 @@
 # Phase 5 — Tools / Security
 
-Status: not started
+Status: completed (2026-08-24)
 
 ## 목표
 
@@ -46,12 +46,12 @@ ClawDesk에서 OpenClaw의 **tool permission policy(허용/거부/확인), secur
   - suppression된 findings는 `suppressedFindings`로 보고됨 (display-only).
 - 재사용 (Phase 3): `openclaw config get <path> --json`(redacted snapshot), `config set <path> '<json>' --strict-json [--replace]` + `--dry-run --json` 2단계 write, config path 동적 해석, ProcessRunner timeout, masking chokepoint, `AppError` stable code.
 
-미확인 항목 (구현 시 live CLI/docs로 확정, 추측 금지):
+## 미확인 항목 (구현 처리 — 2026-08-24)
 
-- `security audit --json`의 findings item 정확 필드 스키마(title/detail field 명칭, summary shape) — docs에 전체 미게재. parser는 `checkId`만 필수, 나머지는 fail-soft → `null`.
-- `tools` section unset일 때 `config get tools --json` 출력 shape (null vs object).
-- `tools` section이 없는 config에서 `tools.allow` 등 write 시 parent path 자동 생성 동작.
-- Windows에서 cold audit(파일/ACL 스캔) 소요 시간 — timeout(60s) 여유 검증.
+- `security audit --json`의 findings item 정확 필드 스키마(title/detail field 명칭, summary shape) — docs에 전체 미게재. **fail-soft parser(`checkId` 필수, 나머지는 `null`)로 구현. live 스키마 baseline은 real E2E(NOT-RUN)로 이월.**
+- `tools` section unset일 때 `config get tools --json` 출력 shape (null vs object). **null/부재 → 빈 policy 이중 처리로 구현. contract test가 빈 config case 커버. live 확인은 real E2E로 이월.**
+- `tools` section이 없는 config에서 `tools.allow` 등 write 시 parent path 자동 생성 동작. **ClawDesk는 path를 생성하지 않으며 `openclaw config set` CLI 동작(dry-run validation 게이트)에 위임. live 확인은 real E2E로 이월.**
+- Windows에서 cold audit(파일/ACL 스캔) 소요 시간. **timeout(60s)은 여유 설정으로 구현. live timing 확인은 real E2E(NOT-RUN)로 이월.**
 
 ---
 
@@ -467,3 +467,13 @@ real E2E: NOT-RUN
 실행하지 않은 검증을 PASS라고 쓰지 않는다.
 
 Phase 5 완료 후 Phase 6로 넘어가지 않는다.
+
+---
+
+# 검증 기록 (2026-08-24)
+
+`/phase-verify` 독립 검증 결과:
+
+- `cargo check` / `cargo test`(lib 267 + installer 10 + openclaw 7 + windows 19 + real_e2e 4 self-skip + skills_plugins 15 + tools_security 13) / `cargo clippy --all-targets` / `cargo fmt --check` / `pnpm typecheck` / `pnpm test`(7 files / 150 tests) / `pnpm lint` — **전부 PASS**
+- Exit Criteria §1–§9 전체 항목 검증: **PASS** (BLOCKER 0, MAJOR 0, MINOR 0)
+- real E2E: **NOT-RUN** (opt-in 3중 게이트 미충족 — 계약 §9에서 명시 허용)

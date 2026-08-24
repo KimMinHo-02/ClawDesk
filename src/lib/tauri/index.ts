@@ -31,6 +31,16 @@ export const COMMANDS = {
   listPlugins: "list-plugins",
   setPluginEnabled: "set-plugin-enabled",
   getPluginRuntime: "get-plugin-runtime",
+  getToolPolicy: "get-tool-policy",
+  setToolProfile: "set-tool-profile",
+  setToolAllow: "set-tool-allow",
+  setToolDeny: "set-tool-deny",
+  setExecMode: "set-exec-mode",
+  listSecurityProfiles: "list-security-profiles",
+  saveSecurityProfile: "save-security-profile",
+  deleteSecurityProfile: "delete-security-profile",
+  applySecurityProfile: "apply-security-profile",
+  runSecurityAudit: "run-security-audit",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -224,6 +234,82 @@ export interface PluginRuntime {
   diagnostics?: string[] | null;
 }
 
+// --- Phase 5 wire types ------------------------------------------------------
+//
+// Read-side fail-soft: unset fields arrive as `null`/empty arrays and unknown
+// enum values are kept raw (the write-side enums gate user input only).
+
+/** The four OpenClaw tool profile values (`tools.profile`). */
+export const TOOL_PROFILES = ["minimal", "coding", "messaging", "full"] as const;
+export type ToolProfile = (typeof TOOL_PROFILES)[number];
+
+/** The five OpenClaw exec mode values (`tools.exec.mode`). */
+export const EXEC_MODES = ["deny", "allowlist", "ask", "auto", "full"] as const;
+export type ExecMode = (typeof EXEC_MODES)[number];
+
+/** The current tool policy (`get-tool-policy` response, redacted). */
+export interface ToolPolicy {
+  /** `null` when unset (unset behaves as `full`); raw string when unknown. */
+  profile: string | null;
+  /** `tools.allow` entries (tool id / `group:*` / wildcard pattern). */
+  allow: string[];
+  /** `tools.deny` entries — deny wins over allow. */
+  deny: string[];
+  /** `null` when unset (host default: no approval gate); raw when unknown. */
+  execMode: string | null;
+  /** Read-only display (`tools.elevated.enabled`). */
+  elevatedEnabled: boolean | null;
+  /** Read-only display (`tools.fs.workspaceOnly`). */
+  fsWorkspaceOnly: boolean | null;
+}
+
+/** A named tool-policy preset (builtin or user). */
+export interface SecurityProfile {
+  id: string;
+  /** Display-only name (1–50 chars, no control characters). */
+  name: string;
+  /** `tools.profile` enum: `minimal` | `coding` | `messaging` | `full`. */
+  baseProfile: string;
+  allow: string[];
+  deny: string[];
+  /** `tools.exec.mode` enum: `deny` | `allowlist` | `ask` | `auto` | `full`. */
+  execMode: string;
+}
+
+/** `list-security-profiles` response. */
+export interface SecurityProfileList {
+  builtins: SecurityProfile[];
+  users: SecurityProfile[];
+  /** Id of the profile matching the current policy (builtins first), or
+   * `null` when the policy is custom or could not be read. */
+  currentApplied: string | null;
+  /** True when the current policy read failed (the list is still shown). */
+  policyReadFailed: boolean;
+}
+
+/** One finding row of `openclaw security audit --json`.
+ *
+ * `checkId` is required (rows without it are dropped by the Rust layer);
+ * the rest are fail-soft. Unknown severity values keep the raw string.
+ */
+export interface SecurityFinding {
+  checkId: string;
+  severity?: string | null;
+  title?: string | null;
+  detail?: string | null;
+}
+
+/** `run-security-audit` response.
+ *
+ * `summary` has no asserted schema (informational display only).
+ * `suppressedCount` is display-only (suppressed details are never surfaced).
+ */
+export interface SecurityAuditResult {
+  summary: unknown;
+  findings: SecurityFinding[];
+  suppressedCount: number;
+}
+
 /**
  * Unified Rust `AppError` serialized across IPC: stable machine-readable
  * `code` plus a masked `message` (S3/S8). The frontend maps `code` to a
@@ -379,4 +465,72 @@ export async function setPluginEnabled(
  */
 export async function getPluginRuntime(pluginId: string): Promise<PluginRuntime> {
   return invoke<PluginRuntime>(COMMANDS.getPluginRuntime, { pluginId });
+}
+
+// --- Phase 5 command wrappers ------------------------------------------------
+
+/** `get-tool-policy`: the current redacted tool policy (read-only). */
+export async function getToolPolicy(): Promise<ToolPolicy> {
+  return invoke<ToolPolicy>(COMMANDS.getToolPolicy);
+}
+
+/** `set-tool-profile`: sets `tools.profile` (enum-validated, two-step write). */
+export async function setToolProfile(profile: ToolProfile): Promise<void> {
+  return invoke<void>(COMMANDS.setToolProfile, { profile });
+}
+
+/** `set-tool-allow`: replaces the whole `tools.allow` array (`--replace`). */
+export async function setToolAllow(entries: string[]): Promise<void> {
+  return invoke<void>(COMMANDS.setToolAllow, { entries });
+}
+
+/** `set-tool-deny`: replaces the whole `tools.deny` array (`--replace`).
+ *
+ * Deny wins over allow.
+ */
+export async function setToolDeny(entries: string[]): Promise<void> {
+  return invoke<void>(COMMANDS.setToolDeny, { entries });
+}
+
+/** `set-exec-mode`: sets `tools.exec.mode` (enum-validated, two-step write). */
+export async function setExecMode(mode: ExecMode): Promise<void> {
+  return invoke<void>(COMMANDS.setExecMode, { mode });
+}
+
+/** `list-security-profiles`: builtins + user profiles + applied state. */
+export async function listSecurityProfiles(): Promise<SecurityProfileList> {
+  return invoke<SecurityProfileList>(COMMANDS.listSecurityProfiles);
+}
+
+/** `save-security-profile`: upserts a user profile (builtins are immutable).
+ *
+ * No config write happens on save.
+ */
+export async function saveSecurityProfile(profile: SecurityProfile): Promise<void> {
+  return invoke<void>(COMMANDS.saveSecurityProfile, { profile });
+}
+
+/** `delete-security-profile`: removes a user profile.
+ *
+ * Builtin ids and unknown ids are `security-profile-not-found`.
+ */
+export async function deleteSecurityProfile(profileId: string): Promise<void> {
+  return invoke<void>(COMMANDS.deleteSecurityProfile, { profileId });
+}
+
+/** `apply-security-profile`: writes the profile's four fields to the config
+ * (profile → allow → deny → exec mode; first failure stops).
+ *
+ * The UI re-queries the actual state afterwards (no optimistic updates).
+ */
+export async function applySecurityProfile(profileId: string): Promise<void> {
+  return invoke<void>(COMMANDS.applySecurityProfile, { profileId });
+}
+
+/** `run-security-audit`: cold, read-only security audit.
+ *
+ * Never `--deep`/`--fix`, no credentials (Rust layer enforces the argv).
+ */
+export async function runSecurityAudit(): Promise<SecurityAuditResult> {
+  return invoke<SecurityAuditResult>(COMMANDS.runSecurityAudit);
 }

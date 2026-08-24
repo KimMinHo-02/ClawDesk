@@ -8,15 +8,25 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   COMMANDS,
+  applySecurityProfile,
+  deleteSecurityProfile,
   detectEnvironment,
   getPluginRuntime,
+  getToolPolicy,
   installOpenClaw,
   isTauriAppError,
   listPlugins,
+  listSecurityProfiles,
   listSkills,
   normalizeAppError,
+  runSecurityAudit,
+  saveSecurityProfile,
+  setExecMode,
   setPluginEnabled,
   setSkillEnabled,
+  setToolAllow,
+  setToolDeny,
+  setToolProfile,
   type EnvironmentReport,
 } from "./index";
 
@@ -36,6 +46,16 @@ describe("COMMANDS", () => {
     expect(COMMANDS.listPlugins).toBe("list-plugins");
     expect(COMMANDS.setPluginEnabled).toBe("set-plugin-enabled");
     expect(COMMANDS.getPluginRuntime).toBe("get-plugin-runtime");
+    expect(COMMANDS.getToolPolicy).toBe("get-tool-policy");
+    expect(COMMANDS.setToolProfile).toBe("set-tool-profile");
+    expect(COMMANDS.setToolAllow).toBe("set-tool-allow");
+    expect(COMMANDS.setToolDeny).toBe("set-tool-deny");
+    expect(COMMANDS.setExecMode).toBe("set-exec-mode");
+    expect(COMMANDS.listSecurityProfiles).toBe("list-security-profiles");
+    expect(COMMANDS.saveSecurityProfile).toBe("save-security-profile");
+    expect(COMMANDS.deleteSecurityProfile).toBe("delete-security-profile");
+    expect(COMMANDS.applySecurityProfile).toBe("apply-security-profile");
+    expect(COMMANDS.runSecurityAudit).toBe("run-security-audit");
   });
 });
 
@@ -124,6 +144,108 @@ describe("Phase 4 wrappers", () => {
     expect(mockInvoke).toHaveBeenCalledWith("get-plugin-runtime", {
       pluginId: "@openclaw/discord",
     });
+  });
+});
+
+describe("Phase 5 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("getToolPolicy invokes get-tool-policy without arguments", async () => {
+    const policy = {
+      profile: "coding",
+      allow: [],
+      deny: [],
+      execMode: null,
+      elevatedEnabled: null,
+      fsWorkspaceOnly: null,
+    };
+    mockInvoke.mockResolvedValueOnce(policy);
+    await expect(getToolPolicy()).resolves.toBe(policy);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("get-tool-policy");
+  });
+
+  it("setToolProfile invokes set-tool-profile with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setToolProfile("messaging")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-tool-profile", { profile: "messaging" });
+  });
+
+  it("setToolAllow invokes set-tool-allow with the entries array", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setToolAllow(["web_search", "image*"])).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-tool-allow", {
+      entries: ["web_search", "image*"],
+    });
+  });
+
+  it("setToolDeny invokes set-tool-deny with the entries array", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setToolDeny(["group:automation"])).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-tool-deny", {
+      entries: ["group:automation"],
+    });
+  });
+
+  it("setExecMode invokes set-exec-mode with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setExecMode("ask")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-exec-mode", { mode: "ask" });
+  });
+
+  it("listSecurityProfiles invokes list-security-profiles without arguments", async () => {
+    const list = {
+      builtins: [],
+      users: [],
+      currentApplied: null,
+      policyReadFailed: false,
+    };
+    mockInvoke.mockResolvedValueOnce(list);
+    await expect(listSecurityProfiles()).resolves.toBe(list);
+    expect(mockInvoke).toHaveBeenCalledWith("list-security-profiles");
+  });
+
+  it("saveSecurityProfile invokes save-security-profile with the profile payload", async () => {
+    const profile = {
+      id: "my-profile",
+      name: "내 프로필",
+      baseProfile: "messaging",
+      allow: [],
+      deny: ["group:automation"],
+      execMode: "ask",
+    };
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(saveSecurityProfile(profile)).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("save-security-profile", { profile });
+  });
+
+  it("deleteSecurityProfile invokes delete-security-profile with profileId", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(deleteSecurityProfile("my-profile")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("delete-security-profile", {
+      profileId: "my-profile",
+    });
+  });
+
+  it("applySecurityProfile invokes apply-security-profile with profileId", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(applySecurityProfile("hardened")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("apply-security-profile", {
+      profileId: "hardened",
+    });
+  });
+
+  it("runSecurityAudit invokes run-security-audit and resolves the wire shape", async () => {
+    const result = {
+      summary: { total: 1 },
+      findings: [{ checkId: "tools.exec.security_full_configured", severity: "warn" }],
+      suppressedCount: 0,
+    };
+    mockInvoke.mockResolvedValueOnce(result);
+    await expect(runSecurityAudit()).resolves.toBe(result);
+    expect(mockInvoke).toHaveBeenCalledWith("run-security-audit");
   });
 });
 
