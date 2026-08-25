@@ -289,6 +289,84 @@ impl AppError {
             format!("the security audit failed: {}", detail.into()),
         )
     }
+
+    // --- Phase 6: channels -------------------------------------------------------
+
+    /// S2: the channel id failed the `{discord, telegram}` validation before
+    /// any process run.
+    pub fn channel_id_invalid(channel: &str) -> Self {
+        Self::invalid_input("channel-id-invalid", "channel", channel)
+    }
+
+    /// S2: the channel token is empty after trimming. The value is never
+    /// echoed (S3).
+    pub fn channel_token_invalid() -> Self {
+        Self::new("channel-token-invalid", "the channel token is empty")
+    }
+
+    /// The channel has no ClawDesk-managed token (delete target missing, or
+    /// connect precondition unmet).
+    pub fn channel_token_not_found(channel: &str) -> Self {
+        Self::new(
+            "channel-token-not-found",
+            format!("no ClawDesk-managed token for channel {channel}"),
+        )
+    }
+
+    /// S2: the dmPolicy value failed the enum validation before any process
+    /// run.
+    pub fn dm_policy_invalid(policy: &str) -> Self {
+        Self::invalid_input("dm-policy-invalid", "dmPolicy", policy)
+    }
+
+    /// S2: the groupPolicy value failed the enum validation before any
+    /// process run.
+    pub fn group_policy_invalid(policy: &str) -> Self {
+        Self::invalid_input("group-policy-invalid", "groupPolicy", policy)
+    }
+
+    /// S2: an allowFrom entry failed format validation (`*` or numeric id).
+    pub fn allow_from_entry_invalid(entry: &str) -> Self {
+        Self::invalid_input("allow-from-entry-invalid", "allowFrom entry", entry)
+    }
+
+    /// The dmPolicy/allowFrom pair violates the cross-rule (allowlist needs
+    /// at least one entry, open needs `*`).
+    pub fn dm_access_inconsistent(detail: impl Into<String>) -> Self {
+        Self::new(
+            "dm-access-inconsistent",
+            format!("the DM access settings are inconsistent: {}", detail.into()),
+        )
+    }
+
+    /// S2: the pairing code failed format validation before any process run.
+    pub fn pairing_code_invalid(code: &str) -> Self {
+        Self::invalid_input("pairing-code-invalid", "pairing code", code)
+    }
+
+    /// `openclaw channels list/status` failed (run or parse).
+    pub fn openclaw_channels_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-channels-failed",
+            format!("reading the OpenClaw channels failed: {}", detail.into()),
+        )
+    }
+
+    /// `openclaw pairing list/approve` failed (run or parse).
+    pub fn openclaw_pairing_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-pairing-failed",
+            format!("the OpenClaw pairing operation failed: {}", detail.into()),
+        )
+    }
+
+    /// `openclaw plugins install <npm-id>` failed (run or post-check).
+    pub fn openclaw_plugin_install_failed(npm_id: &str, detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-plugin-install-failed",
+            format!("installing plugin {npm_id} failed: {}", detail.into()),
+        )
+    }
 }
 
 impl fmt::Display for AppError {

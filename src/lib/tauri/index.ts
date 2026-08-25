@@ -41,6 +41,16 @@ export const COMMANDS = {
   deleteSecurityProfile: "delete-security-profile",
   applySecurityProfile: "apply-security-profile",
   runSecurityAudit: "run-security-audit",
+  getChannels: "get-channels",
+  getChannelConfig: "get-channel-config",
+  setChannelToken: "set-channel-token",
+  deleteChannelToken: "delete-channel-token",
+  connectChannel: "connect-channel",
+  setChannelEnabled: "set-channel-enabled",
+  setDmAccess: "set-dm-access",
+  setGroupPolicy: "set-group-policy",
+  listPairingRequests: "list-pairing-requests",
+  approvePairing: "approve-pairing",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -310,6 +320,62 @@ export interface SecurityAuditResult {
   suppressedCount: number;
 }
 
+// --- Phase 6 wire types ------------------------------------------------------
+//
+// Read-side fail-soft: `enabled`/`dmPolicy`/`groupPolicy`/`runtimeState`
+// arrive as `null` when unset, and unknown raw values are kept (the
+// write-side enums gate user input only). The channel token value itself is
+// never a field (S7) — only its `managed`/`external`/`absent` state.
+
+/** How the channel token field is populated (redacted, never the value). */
+export type ChannelTokenState = "absent" | "managed" | "external";
+
+/** The four OpenClaw DM policy values (`channels.<ch>.dmPolicy`). */
+export const DM_POLICIES = ["pairing", "allowlist", "open", "disabled"] as const;
+export type DmPolicy = (typeof DM_POLICIES)[number];
+
+/** The three OpenClaw group policy values (`channels.<ch>.groupPolicy`). */
+export const GROUP_POLICIES = ["open", "allowlist", "disabled"] as const;
+export type GroupPolicy = (typeof GROUP_POLICIES)[number];
+
+/** A redacted `channels.<channel>` snapshot (`get-channel-config`). */
+export interface ChannelConfig {
+  /** `null` when the section is absent. */
+  enabled: boolean | null;
+  /** Token field state (the value itself never crosses IPC, S7). */
+  tokenState: ChannelTokenState;
+  /** `null` when unset; unknown raw values are kept. */
+  dmPolicy: string | null;
+  /** Non-array/absent → empty; non-string elements skipped. */
+  allowFrom: string[];
+  /** `null` when unset; unknown raw values are kept. */
+  groupPolicy: string | null;
+}
+
+/** A merged row of `get-channels` (list row + status row). */
+export interface ChannelSummary {
+  id: string;
+  installed: boolean;
+  configured: boolean;
+  enabled: boolean;
+  /** Raw runtime state (`null` when the gateway is unreachable). */
+  runtimeState: string | null;
+}
+
+/** `get-channels` response. */
+export interface ChannelsOverview {
+  /** `false` → the UI presents config-based state only (no "connected" guess). */
+  gatewayReachable: boolean;
+  channels: ChannelSummary[];
+}
+
+/** One pending pairing request (`list-pairing-requests` row). */
+export interface PairingRequest {
+  code: string;
+  /** Fail-soft; `null` when absent. */
+  sender: string | null;
+}
+
 /**
  * Unified Rust `AppError` serialized across IPC: stable machine-readable
  * `code` plus a masked `message` (S3/S8). The frontend maps `code` to a
@@ -533,4 +599,74 @@ export async function applySecurityProfile(profileId: string): Promise<void> {
  */
 export async function runSecurityAudit(): Promise<SecurityAuditResult> {
   return invoke<SecurityAuditResult>(COMMANDS.runSecurityAudit);
+}
+
+// --- Phase 6 command wrappers ------------------------------------------------
+
+/** `get-channels`: merged `channels list --all` + `channels status` rows for
+ * discord/telegram (read-only). */
+export async function getChannels(): Promise<ChannelsOverview> {
+  return invoke<ChannelsOverview>(COMMANDS.getChannels);
+}
+
+/** `get-channel-config`: redacted `channels.<channel>` snapshot.
+ *
+ * The token value is never included (S7) — only its state.
+ */
+export async function getChannelConfig(channel: string): Promise<ChannelConfig> {
+  return invoke<ChannelConfig>(COMMANDS.getChannelConfig, { channel });
+}
+
+/** `set-channel-token`: registers the token in DPAPI first (S7), then writes
+ * the exec SecretRef to the config.
+ *
+ * The token value travels to Rust only — it is never shown again.
+ */
+export async function setChannelToken(channel: string, token: string): Promise<void> {
+  return invoke<void>(COMMANDS.setChannelToken, { channel, token });
+}
+
+/** `delete-channel-token`: removes the managed ref + DPAPI entry. */
+export async function deleteChannelToken(channel: string): Promise<void> {
+  return invoke<void>(COMMANDS.deleteChannelToken, { channel });
+}
+
+/** `connect-channel`: token-ref precondition → (Discord) idempotent plugin
+ * install → `enabled=true`. Fixed order, first failure stops.
+ *
+ * The UI re-queries the actual state afterwards (no optimistic updates).
+ */
+export async function connectChannel(channel: string): Promise<void> {
+  return invoke<void>(COMMANDS.connectChannel, { channel });
+}
+
+/** `set-channel-enabled`: scalar `enabled` write (disable keeps token and
+ * policies). */
+export async function setChannelEnabled(channel: string, enabled: boolean): Promise<void> {
+  return invoke<void>(COMMANDS.setChannelEnabled, { channel, enabled });
+}
+
+/** `set-dm-access`: writes `dmPolicy` → `allowFrom` (`--replace`) in a fixed
+ * order (pre-validated on both sides). */
+export async function setDmAccess(
+  channel: string,
+  dmPolicy: string,
+  allowFrom: string[],
+): Promise<void> {
+  return invoke<void>(COMMANDS.setDmAccess, { channel, dmPolicy, allowFrom });
+}
+
+/** `set-group-policy`: enum-validated scalar `groupPolicy` write. */
+export async function setGroupPolicy(channel: string, groupPolicy: string): Promise<void> {
+  return invoke<void>(COMMANDS.setGroupPolicy, { channel, groupPolicy });
+}
+
+/** `list-pairing-requests`: pending pairing requests for the channel. */
+export async function listPairingRequests(channel: string): Promise<PairingRequest[]> {
+  return invoke<PairingRequest[]>(COMMANDS.listPairingRequests, { channel });
+}
+
+/** `approve-pairing`: channel + code validated before the CLI call. */
+export async function approvePairing(channel: string, code: string): Promise<void> {
+  return invoke<void>(COMMANDS.approvePairing, { channel, code });
 }

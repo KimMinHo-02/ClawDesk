@@ -3,6 +3,8 @@
 pub mod services;
 
 pub use services::api_key::ApiKeyService;
+pub use services::channel_token::ChannelTokenService;
+pub use services::channels::ChannelService;
 pub use services::environment::{
     default_openclaw_search_dirs, EnvironmentReport, EnvironmentService,
 };

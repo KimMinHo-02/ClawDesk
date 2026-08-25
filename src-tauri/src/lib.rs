@@ -41,7 +41,17 @@ pub fn run() {
             commands::security::save_security_profile,
             commands::security::delete_security_profile,
             commands::security::apply_security_profile,
-            commands::security::run_security_audit
+            commands::security::run_security_audit,
+            commands::channels::get_channels,
+            commands::channels::get_channel_config,
+            commands::channels::set_channel_token,
+            commands::channels::delete_channel_token,
+            commands::channels::connect_channel,
+            commands::channels::set_channel_enabled,
+            commands::channels::set_dm_access,
+            commands::channels::set_group_policy,
+            commands::channels::list_pairing_requests,
+            commands::channels::approve_pairing
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

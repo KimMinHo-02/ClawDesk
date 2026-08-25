@@ -8,6 +8,7 @@
 //! Errors are returned as the unified `AppError` (stable `code` + masked
 //! `message`); infrastructure details never reach the frontend raw.
 
+pub mod channels;
 pub mod models;
 pub mod plugins;
 pub mod security;

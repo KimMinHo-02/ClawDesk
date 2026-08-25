@@ -1,3 +1,4 @@
+import { ChannelsFeature } from "./features/channels/ChannelsFeature";
 import { ModelsFeature } from "./features/models/ModelsFeature";
 import { PluginsFeature } from "./features/plugins/PluginsFeature";
 import { SetupFeature } from "./features/setup/SetupFeature";
@@ -17,6 +18,7 @@ function App() {
       <SkillsFeature />
       <PluginsFeature />
       <ToolsSecurityFeature />
+      <ChannelsFeature />
     </main>
   );
 }
