@@ -1,6 +1,6 @@
 # Phase 6 — Channels (Discord / Telegram)
 
-Status: not started
+Status: completed (2026-08-24)
 
 ## 목표
 

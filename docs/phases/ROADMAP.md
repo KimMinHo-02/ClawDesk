@@ -12,7 +12,7 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 | 3.1   | Phase 3 Review Revision                | F1-F4 수정: API key life-cycle 순서(DPAPI 우선) + orphan cleanup, fake protected path 모방, 계약 문서 개정, argv capture contract test | completed   |
 | 4     | Skills / Plugins                       | skills·plugins 목록과 활성화 관리                                                                                                   | completed   |
 | 5     | Tools / Security                       | tool permission, security profile                                                                                                   | completed   |
-| 6     | Channels                               | Discord/Telegram 채널 연결·설정                                                                                                     | not started |
+| 6     | Channels                               | Discord/Telegram 채널 연결·설정                                                                                                     | completed   |
 | 7     | Automations                            | automation 관리 (생성/수정/삭제/활성화)                                                                                             | not started |
 | 8     | Profile / Update / Diagnostics         | profile, OpenClaw update 상태, API 상태, diagnostics                                                                                | not started |
 | 9     | Integrated Chat                        | 앱 내 chat (모델별 reasoning effort)                                                                                                | not started |

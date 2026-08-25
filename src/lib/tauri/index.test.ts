@@ -9,19 +9,29 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
   COMMANDS,
   applySecurityProfile,
+  approvePairing,
+  connectChannel,
+  deleteChannelToken,
   deleteSecurityProfile,
   detectEnvironment,
+  getChannelConfig,
+  getChannels,
   getPluginRuntime,
   getToolPolicy,
   installOpenClaw,
   isTauriAppError,
+  listPairingRequests,
   listPlugins,
   listSecurityProfiles,
   listSkills,
   normalizeAppError,
   runSecurityAudit,
   saveSecurityProfile,
+  setChannelEnabled,
+  setChannelToken,
+  setDmAccess,
   setExecMode,
+  setGroupPolicy,
   setPluginEnabled,
   setSkillEnabled,
   setToolAllow,
@@ -56,6 +66,16 @@ describe("COMMANDS", () => {
     expect(COMMANDS.deleteSecurityProfile).toBe("delete-security-profile");
     expect(COMMANDS.applySecurityProfile).toBe("apply-security-profile");
     expect(COMMANDS.runSecurityAudit).toBe("run-security-audit");
+    expect(COMMANDS.getChannels).toBe("get-channels");
+    expect(COMMANDS.getChannelConfig).toBe("get-channel-config");
+    expect(COMMANDS.setChannelToken).toBe("set-channel-token");
+    expect(COMMANDS.deleteChannelToken).toBe("delete-channel-token");
+    expect(COMMANDS.connectChannel).toBe("connect-channel");
+    expect(COMMANDS.setChannelEnabled).toBe("set-channel-enabled");
+    expect(COMMANDS.setDmAccess).toBe("set-dm-access");
+    expect(COMMANDS.setGroupPolicy).toBe("set-group-policy");
+    expect(COMMANDS.listPairingRequests).toBe("list-pairing-requests");
+    expect(COMMANDS.approvePairing).toBe("approve-pairing");
   });
 });
 
@@ -246,6 +266,107 @@ describe("Phase 5 wrappers", () => {
     mockInvoke.mockResolvedValueOnce(result);
     await expect(runSecurityAudit()).resolves.toBe(result);
     expect(mockInvoke).toHaveBeenCalledWith("run-security-audit");
+  });
+});
+
+describe("Phase 6 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("getChannels invokes get-channels without arguments", async () => {
+    const overview = {
+      gatewayReachable: true,
+      channels: [
+        { id: "discord", installed: true, configured: true, enabled: false, runtimeState: "connected" },
+        { id: "telegram", installed: true, configured: false, enabled: false, runtimeState: null },
+      ],
+    };
+    mockInvoke.mockResolvedValueOnce(overview);
+    await expect(getChannels()).resolves.toBe(overview);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("get-channels");
+  });
+
+  it("getChannelConfig invokes get-channel-config with camelCase arguments", async () => {
+    const config = {
+      enabled: true,
+      tokenState: "managed" as const,
+      dmPolicy: "pairing" as string | null,
+      allowFrom: ["1234567890"],
+      groupPolicy: "allowlist" as string | null,
+    };
+    mockInvoke.mockResolvedValueOnce(config);
+    await expect(getChannelConfig("discord")).resolves.toBe(config);
+    expect(mockInvoke).toHaveBeenCalledWith("get-channel-config", { channel: "discord" });
+  });
+
+  it("setChannelToken invokes set-channel-token with the token payload", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setChannelToken("telegram", "clawdesk-test-telegram-bot-9876543210")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-channel-token", {
+      channel: "telegram",
+      token: "clawdesk-test-telegram-bot-9876543210",
+    });
+  });
+
+  it("deleteChannelToken invokes delete-channel-token with channel", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(deleteChannelToken("discord")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("delete-channel-token", { channel: "discord" });
+  });
+
+  it("connectChannel invokes connect-channel with channel", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(connectChannel("discord")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("connect-channel", { channel: "discord" });
+  });
+
+  it("setChannelEnabled invokes set-channel-enabled with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setChannelEnabled("telegram", false)).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-channel-enabled", {
+      channel: "telegram",
+      enabled: false,
+    });
+  });
+
+  it("setDmAccess invokes set-dm-access with the policy and entries", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setDmAccess("discord", "allowlist", ["1234567890", "2222222222"])).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-dm-access", {
+      channel: "discord",
+      dmPolicy: "allowlist",
+      allowFrom: ["1234567890", "2222222222"],
+    });
+  });
+
+  it("setGroupPolicy invokes set-group-policy with camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setGroupPolicy("discord", "open")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-group-policy", {
+      channel: "discord",
+      groupPolicy: "open",
+    });
+  });
+
+  it("listPairingRequests invokes list-pairing-requests and resolves the rows", async () => {
+    const requests = [
+      { code: "abcd1234", sender: "someone" },
+      { code: "efgh5678", sender: null },
+    ];
+    mockInvoke.mockResolvedValueOnce(requests);
+    await expect(listPairingRequests("discord")).resolves.toBe(requests);
+    expect(mockInvoke).toHaveBeenCalledWith("list-pairing-requests", { channel: "discord" });
+  });
+
+  it("approvePairing invokes approve-pairing with channel and code", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(approvePairing("discord", "abcd1234")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("approve-pairing", {
+      channel: "discord",
+      code: "abcd1234",
+    });
   });
 });
 

@@ -314,6 +314,122 @@ export const ko = {
       fallback: "오류가 발생했습니다. 다시 시도해 주세요.",
     },
   },
+  channels: {
+    title: "채널 (Channels)",
+    loading: "불러오는 중...",
+    configOnlyNote: "게이트웨이에 연결되지 않아 구성 상태만 표시합니다.",
+    autoApplyNote: "Gateway 실행 중이면 변경이 자동 반영됩니다.",
+
+    // Channel card
+    channelDiscord: "Discord",
+    channelTelegram: "Telegram",
+    installed: "설치됨",
+    notInstalled: "미설치",
+    configured: "구성됨",
+    notConfigured: "미구성",
+    enabled: "활성화",
+    disabled: "비활성화",
+    runtime: "실행 상태",
+    runtimeConnected: "연결됨",
+    runtimeUnknown: "미확인",
+    runtimeHidden: "—",
+
+    // Token
+    token: "토큰",
+    tokenAbsent: "미등록",
+    tokenManaged: "관리 중 (OS 보안 저장소 DPAPI)",
+    tokenExternal: "외부에서 관리 중 (ClawDesk로는 변경할 수 없음)",
+    tokenExternalHint: "토큰이 외부에서 관리되고 있습니다. 먼저 OpenClaw에서 변경해 주세요.",
+    tokenRegister: "토큰 등록/변경",
+    tokenInput: "토큰 값",
+    tokenHint: "값은 OS 보안 저장소(DPAPI)에만 저장되며 한 번 저장하면 다시 표시되지 않습니다.",
+    tokenSave: "저장",
+    tokenSaving: "저장 중...",
+    tokenDelete: "토큰 삭제",
+    tokenDeleteConfirm: "이 채널의 토큰을 삭제할까요?",
+    tokenInvalid: "토큰은 빈 값일 수 없습니다.",
+
+    // Connect / enabled
+    connect: "연결",
+    connecting: "연결 중... (플러그인 설치에 수 분까지 소요될 수 있습니다)",
+    connectDisabledHint: "ClawDesk 관리 토큰을 등록한 뒤 연결할 수 있습니다.",
+    enable: "활성화",
+    disable: "비활성화",
+    disableConfirm: "이 채널을 비활성화할까요?",
+
+    // DM access
+    dmAccess: "DM 접근",
+    dmPolicyLabel: "DM 정책",
+    dmPolicies: {
+      pairing: "페어링(승인 필요)",
+      allowlist: "허용 목록만",
+      open: "개방(모든 사용자)",
+      disabled: "비활성",
+    },
+    dmPolicyUnknown: "미확인",
+    dmUnsetNote: "(미설정 — 기본 페어링 적용)",
+    allowFromTitle: "DM 허용 목록 (allowFrom)",
+    allowFromHint: "* 또는 숫자 사용자 ID(1–32자리)를 사용할 수 있습니다.",
+    allowFromPlaceholder: "예: 1234567890, *",
+    allowFromInvalid: "항목 형식이 올바르지 않습니다. (* 또는 숫자 1–32자리)",
+    add: "추가",
+    remove: "삭제",
+    emptyList: "항목이 없습니다.",
+    dmAccessInconsistent: "허용 목록 정책에는 항목 1개 이상, 개방 정책에는 * 항목이 필요합니다.",
+    saveDmAccess: "DM 접근 저장",
+    saving: "저장 중...",
+
+    // Group policy
+    groupPolicyLabel: "그룹 정책",
+    groupPolicies: {
+      open: "개방(모든 사용자)",
+      allowlist: "허용 목록만",
+      disabled: "비활성",
+    },
+    groupPolicyUnknown: "미확인",
+    groupUnsetNote: "(미설정 — 기본 허용 목록 적용)",
+    saveGroupPolicy: "그룹 정책 저장",
+
+    // Pairing
+    pairing: "페어링 요청",
+    pairingHint: "대기 중인 페어링 요청을 조회하고 승인할 수 있습니다.",
+    pairingLoad: "페어링 요청 조회",
+    pairingLoading: "조회 중...",
+    pairingEmpty: "대기 중인 요청이 없습니다.",
+    pairingSenderUnknown: "미확인",
+    pairingApprove: "승인",
+    pairingCodeInput: "페어링 코드 입력",
+    pairingCodeInvalid: "페어링 코드 형식이 올바르지 않습니다. (4–64자리, 영문·숫자·_·-)",
+    pairingOwnerNote: "최초 승인 시 command owner가 설정될 수 있습니다.",
+
+    // General
+    savedNote: "변경 후 실제 상태를 재조회했습니다.",
+    errors: {
+      "channel-id-invalid": "채널 ID 형식이 올바르지 않습니다.",
+      "channel-token-invalid": "토큰 형식이 올바르지 않습니다. 빈 값은 사용할 수 없습니다.",
+      "channel-token-not-found": "이 채널에 등록된 ClawDesk 관리 토큰이 없습니다.",
+      "dm-policy-invalid": "선택한 DM 정책 값이 유효하지 않습니다.",
+      "group-policy-invalid": "선택한 그룹 정책 값이 유효하지 않습니다.",
+      "allow-from-entry-invalid": "DM 허용 목록 항목 형식이 올바르지 않습니다. (* 또는 숫자 1–32자리)",
+      "dm-access-inconsistent": "DM 정책과 허용 목록 조합이 올바르지 않습니다.",
+      "pairing-code-invalid": "페어링 코드 형식이 올바르지 않습니다.",
+      "openclaw-channels-failed":
+        "채널 상태를 읽는 데 실패했습니다. OpenClaw 설치 상태를 확인해 주세요.",
+      "openclaw-pairing-failed": "페어링 요청 처리에 실패했습니다. 다시 시도해 주세요.",
+      "openclaw-plugin-install-failed": "Discord 플러그인 설치에 실패했습니다. 다시 시도해 주세요.",
+      "openclaw-config-read-failed":
+        "OpenClaw 설정을 읽는 데 실패했습니다. OpenClaw 설치 상태를 확인해 주세요.",
+      "openclaw-config-write-failed": "OpenClaw 설정 저장에 실패했습니다. 다시 시도해 주세요.",
+      "openclaw-config-invalid":
+        "OpenClaw가 요청한 설정을 거부했습니다. 입력값을 확인해 주세요.",
+      "secret-store-unavailable": "보안 저장소(DPAPI)에 접근할 수 없습니다. 토큰을 저장할 수 없습니다.",
+      "secret-ref-registration-failed": "토큰 연결 등록에 실패했습니다. 다시 시도해 주세요.",
+      "openclaw-not-found": "OpenClaw를 찾을 수 없습니다. 먼저 OpenClaw를 설치해 주세요.",
+      "process-timeout": "작업이 시간 내로 완료되지 않았습니다. 다시 시도해 주세요.",
+      "process-failed": "작업 실행에 실패했습니다. 다시 시도해 주세요.",
+      fallback: "오류가 발생했습니다. 다시 시도해 주세요.",
+    },
+  },
 } as const;
 
 export type KoStrings = typeof ko;

@@ -98,6 +98,28 @@ fn real_openclaw_tools_security_flow() {
     }
 }
 
+/// Phase 6 channels flow against the real OpenClaw — same triple gate.
+///
+/// Read-only baseline (list/status/config) plus a Discord token round-trip
+/// executed ONLY when the current Discord token state is `absent` (a
+/// user-managed token is never touched). No real `plugins install` and no
+/// Telegram mutation.
+#[test]
+fn real_openclaw_channels_flow() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (channels): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::channels_flow();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (channels): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
@@ -109,9 +131,10 @@ mod real {
     use std::time::Duration;
 
     use clawdesk_lib::application::{
-        EnvironmentReport, EnvironmentService, InstallResult, InstallService, ModelInput,
-        ModelService, ProviderInput,
+        ChannelService, ChannelTokenService, EnvironmentReport, EnvironmentService, InstallResult,
+        InstallService, ModelInput, ModelService, ProviderInput,
     };
+    use clawdesk_lib::domain::models::channels::ChannelTokenState;
     use clawdesk_lib::domain::models::OpenClawStatus;
     use clawdesk_lib::domain::ports::process::{ProcessPort, ProcessRequest};
     use clawdesk_lib::domain::ports::{OpenClawInstallerPort, WindowsSystemPort};
@@ -468,6 +491,90 @@ mod real {
             "tools.profile must be restored to its original value"
         );
         eprintln!("real E2E (tools/security): tools.profile round-trip OK");
+    }
+
+    /// Phase 6: channels read-only baseline (list/status/config) + a Discord
+    /// token round-trip executed only when the current Discord token state
+    /// is `absent`. No real `plugins install`, no Telegram mutation, and a
+    /// user-managed token is never touched.
+    pub fn channels_flow() {
+        let environment = EnvironmentService::production();
+        let report = environment
+            .detect_environment()
+            .expect("environment detection for channels E2E");
+        let OpenClawStatus::Detected { version, .. } = &report.openclaw else {
+            eprintln!("real E2E (channels): NOT-RUN (OpenClaw not detected)");
+            return;
+        };
+        eprintln!(
+            "real E2E (channels): OpenClaw detected (version: {:?})",
+            version
+        );
+
+        let channels = ChannelService::production();
+        let tokens = ChannelTokenService::production();
+
+        // Read-only baselines (informational — a live CLI shape change must
+        // not fail the flow, so failures are reported, not asserted).
+        match channels.get_channels() {
+            Ok(overview) => eprintln!(
+                "real E2E (channels): overview gatewayReachable={} channels={:?}",
+                overview.gateway_reachable, overview.channels
+            ),
+            Err(err) => eprintln!("real E2E (channels): overview NOT-VERIFIED ({err})"),
+        }
+        for channel in ["discord", "telegram"] {
+            match channels.get_channel_config(channel) {
+                Ok(config) => eprintln!(
+                    "real E2E (channels): config {channel} tokenState={:?} dmPolicy={:?} groupPolicy={:?}",
+                    config.token_state, config.dm_policy, config.group_policy
+                ),
+                Err(err) => eprintln!(
+                    "real E2E (channels): config {channel} NOT-VERIFIED ({err})"
+                ),
+            }
+        }
+
+        // Discord token round-trip: only when the token state is absent.
+        let state = match channels.get_channel_config("discord") {
+            Ok(config) => config.token_state,
+            Err(err) => {
+                eprintln!(
+                    "real E2E (channels): token round-trip NOT-RUN (discord config read failed: {err})"
+                );
+                return;
+            }
+        };
+        if state != ChannelTokenState::Absent {
+            eprintln!(
+                "real E2E (channels): token round-trip NOT-RUN (discord token state is {state:?})"
+            );
+            return;
+        }
+        let test_token = "clawdesk-real-e2e-discord-4242424242";
+        tokens
+            .set_channel_token("discord", test_token)
+            .unwrap_or_else(|err| panic!("discord token set failed: {err}"));
+        let after_set = channels
+            .get_channel_config("discord")
+            .expect("discord config read after set");
+        assert_eq!(
+            after_set.token_state,
+            ChannelTokenState::Managed,
+            "discord token must classify as managed after set"
+        );
+        tokens
+            .delete_channel_token("discord")
+            .unwrap_or_else(|err| panic!("discord token delete failed: {err}"));
+        let after_delete = channels
+            .get_channel_config("discord")
+            .expect("discord config read after delete");
+        assert_eq!(
+            after_delete.token_state,
+            ChannelTokenState::Absent,
+            "discord token must be absent after delete"
+        );
+        eprintln!("real E2E (channels): discord token round-trip OK");
     }
 
     /// Prints the config-schema baseline observations (informational).

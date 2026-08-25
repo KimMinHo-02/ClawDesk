@@ -107,7 +107,7 @@ impl ApiKeyService {
         // which `delete_api_key` cleans up.
         self.secrets.set(&secret_key_id(provider_id), api_key)?;
 
-        self.ensure_secret_provider(&exe)?;
+        ensure_clawdesk_secret_provider(&*self.config, &exe, &self.resolver)?;
 
         let reference = clawdesk_secret_ref(provider_id);
         let reference_json = serde_json::to_string(&reference).map_err(|err| {
@@ -180,36 +180,49 @@ impl ApiKeyService {
             })
             .collect())
     }
+}
 
-    /// Ensures `secrets.providers.clawdesk` points at the current resolver
-    /// binary (idempotent: no write when the declaration already matches).
-    fn ensure_secret_provider(&self, exe: &std::path::Path) -> Result<(), AppError> {
-        const DECLARATION_PATH: &str = "secrets.providers.clawdesk";
-        let resolver_display = self.resolver.display().to_string();
-        if let Some(current) = self.config.read_raw(exe, DECLARATION_PATH)? {
-            if let Ok(value) = serde_json::from_str::<serde_json::Value>(&current) {
-                if value.get("command").and_then(|command| command.as_str())
-                    == Some(resolver_display.as_str())
-                {
+/// Ensures `secrets.providers.clawdesk` points at the current resolver
+/// binary (idempotent: no write when the declaration already matches).
+///
+/// Shared by the Phase 3 provider API-key lifecycle and the Phase 6 channel
+/// token lifecycle — both exec SecretRefs resolve through the same
+/// `clawdesk` provider, so there is exactly one declaration.
+pub(crate) fn ensure_clawdesk_secret_provider(
+    config: &dyn OpenClawConfigPort,
+    exe: &std::path::Path,
+    resolver: &std::path::Path,
+) -> Result<(), AppError> {
+    const DECLARATION_PATH: &str = "secrets.providers.clawdesk";
+    let resolver_display = resolver.display().to_string();
+    // Read-backs pass through the S8 mask pipeline, and the resolver path
+    // itself can carry a maskable pattern (`clawdesk-secret-...` contains
+    // `sk-`): the same path comes back masked. Accept the raw or the masked
+    // form of the same path as "current" (a stale command matches neither).
+    let resolver_masked = crate::infrastructure::masking::mask_secrets(&resolver_display);
+    if let Some(current) = config.read_raw(exe, DECLARATION_PATH)? {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&current) {
+            if let Some(command) = value.get("command").and_then(|command| command.as_str()) {
+                if command == resolver_display || command == resolver_masked {
                     return Ok(());
                 }
             }
         }
-        let declaration = serde_json::json!({
-            "source": "exec",
-            "command": resolver_display,
-            "timeoutMs": 5000,
-            "jsonOnly": true,
-        });
-        self.config
-            .write(
-                exe,
-                DECLARATION_PATH,
-                &declaration.to_string(),
-                WriteMode::Plain,
-            )
-            .map_err(|err| AppError::secret_ref_registration_failed(err.message))
     }
+    let declaration = serde_json::json!({
+        "source": "exec",
+        "command": resolver_display,
+        "timeoutMs": 5000,
+        "jsonOnly": true,
+    });
+    config
+        .write(
+            exe,
+            DECLARATION_PATH,
+            &declaration.to_string(),
+            WriteMode::Plain,
+        )
+        .map_err(|err| AppError::secret_ref_registration_failed(err.message))
 }
 
 #[cfg(test)]

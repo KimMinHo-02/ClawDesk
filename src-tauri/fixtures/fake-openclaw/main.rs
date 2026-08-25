@@ -39,6 +39,22 @@ use serde_json::{Map, Value};
 ///   `securityAudit.findings`/`suppressedFindings` passthrough;
 ///   `--deep`/`--fix`/`--token`/`--password` are rejected)
 ///
+/// Phase 6 adds the channels/pairing simulation (state `channels` /
+/// `channelsStatus` / `pairing` sections; the fake never receives a token
+/// value — `channels add --token` is intentionally unsupported):
+///
+/// - `channels list --all --json` — explicit `channels` array rows are
+///   passed through; otherwise rows are derived from the `channels.<id>`
+///   config sections (Discord `installed` ⇔ `plugins.catalog` holds
+///   `@openclaw/discord`)
+/// - `channels status --json` — `channelsStatus` section passthrough
+///   (`gatewayReachable` + `channels` rows)
+/// - `pairing list <channel> --json` — `pairing.<channel>` rows
+/// - `pairing approve <channel> <code>` — removes the matching row
+///   (unknown code → failure envelope, exit 1)
+/// - `plugins install <npm-id>` — dedup into `plugins.catalog` (the
+///   `plugins list` re-check then sees it)
+///
 /// `CLAWDESK_FAKE_CAPTURE` (file) receives one JSON array line per
 /// invocation with the exact argv, so contract tests can assert the
 /// structured command line byte-for-byte.
@@ -130,6 +146,25 @@ fn main() -> ExitCode {
     {
         let runtime = args.iter().any(|arg| arg.as_str() == "--runtime");
         return handle_plugins_inspect(&args[2], runtime);
+    }
+    if args.len() == 3 && args[0] == "plugins" && args[1] == "install" {
+        return handle_plugins_install(&args[2]);
+    }
+    if matches_command(&args, &["channels", "list", "--all", "--json"]) {
+        return handle_channels_list();
+    }
+    if matches_command(&args, &["channels", "status", "--json"]) {
+        return handle_channels_status();
+    }
+    if args.len() >= 4
+        && args[0] == "pairing"
+        && args[1] == "list"
+        && args.last().map(|a| a.as_str()) == Some("--json")
+    {
+        return handle_pairing_list(&args[2]);
+    }
+    if args.len() == 4 && args[0] == "pairing" && args[1] == "approve" {
+        return handle_pairing_approve(&args[2], &args[3]);
     }
     eprintln!("fake-openclaw: unsupported command: {}", args.join(" "));
     ExitCode::from(2)
@@ -1094,6 +1129,188 @@ fn count_severity(findings: &[Value], severity: &str) -> u64 {
         .iter()
         .filter(|row| row.get("severity").and_then(|s| s.as_str()) == Some(severity))
         .count() as u64
+}
+
+// --- Phase 6: channels / pairing / plugin install state simulation -------------
+//
+// State sections (sandbox `openclaw.json`):
+//
+// - `channels` — either an explicit array of `{id,installed,configured,enabled}`
+//   rows (contract fixtures) or an object of `channels.<id>` config sections
+//   (created by `config set channels.<id>.<field>` writes)
+// - `channelsStatus` — `{gatewayReachable, channels:[{id,state}]}` passthrough
+// - `pairing.<channel>` — array of `{code,sender?}` pending requests
+//
+// The token value is never a fake-CLI argument: `set-channel-token` writes
+// the ClawDesk exec SecretRef through `config set` (the value itself lives
+// only in the ClawDesk secret store).
+
+/// The npm id of the Discord channel plugin (the connect flow installs it).
+const DISCORD_PLUGIN_ID: &str = "@openclaw/discord";
+
+fn handle_plugins_install(npm_id: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    // Dedup into the catalog so the `plugins list` post-check sees it.
+    let plugins = state
+        .as_object_mut()
+        .expect("state is an object")
+        .entry("plugins")
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !plugins.is_object() {
+        *plugins = Value::Object(Map::new());
+    }
+    let catalog = plugins
+        .as_object_mut()
+        .expect("plugins normalized")
+        .entry("catalog")
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !catalog.is_object() {
+        *catalog = Value::Object(Map::new());
+    }
+    let catalog = catalog.as_object_mut().expect("catalog normalized");
+    if !catalog.contains_key(npm_id) {
+        catalog.insert(
+            npm_id.to_string(),
+            Value::Object(Map::from_iter([
+                ("name".to_string(), Value::String(npm_id.to_string())),
+                ("origin".to_string(), Value::String("npm".to_string())),
+            ])),
+        );
+    }
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{}}}"#,
+        serde_json::to_string(npm_id).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_channels_list() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let mut rows: Vec<Value> = Vec::new();
+    match state.get("channels") {
+        // Explicit scripted rows (contract fixtures) pass through unchanged.
+        Some(Value::Array(items)) => rows = items.to_vec(),
+        _ => {
+            let section_map = state.get("channels").and_then(|c| c.as_object());
+            for id in ["discord", "telegram"] {
+                let installed = if id == "discord" {
+                    state
+                        .get("plugins")
+                        .and_then(|p| p.get("catalog"))
+                        .and_then(|c| c.get(DISCORD_PLUGIN_ID))
+                        .is_some()
+                } else {
+                    true
+                };
+                let section = section_map.and_then(|m| m.get(id));
+                let enabled = section
+                    .and_then(|s| s.get("enabled"))
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let mut row = Map::new();
+                row.insert("id".to_string(), Value::String(id.to_string()));
+                row.insert("installed".to_string(), Value::Bool(installed));
+                row.insert("configured".to_string(), Value::Bool(section.is_some()));
+                row.insert("enabled".to_string(), Value::Bool(enabled));
+                rows.push(Value::Object(row));
+            }
+        }
+    }
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(Map::from_iter([
+            ("ok".to_string(), Value::Bool(true)),
+            ("channels".to_string(), Value::Array(rows)),
+        ])))
+        .unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_channels_status() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    // Absent section → `null`: the parser fails soft to config-only state.
+    let section = state.get("channelsStatus").cloned().unwrap_or(Value::Null);
+    println!("{}", serde_json::to_string(&section).unwrap_or_default());
+    ExitCode::SUCCESS
+}
+
+fn handle_pairing_list(channel: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let requests = state
+        .get("pairing")
+        .and_then(|p| p.get(channel))
+        .and_then(|r| r.as_array())
+        .cloned()
+        .unwrap_or_default();
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(Map::from_iter([
+            ("ok".to_string(), Value::Bool(true)),
+            ("requests".to_string(), Value::Array(requests)),
+        ])))
+        .unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_pairing_approve(channel: &str, code: &str) -> ExitCode {
+    if let Some(code_) = behavior_override() {
+        return code_;
+    }
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let Some(array) = state
+        .get_mut("pairing")
+        .and_then(|p| p.get_mut(channel))
+        .and_then(|r| r.as_array_mut())
+    else {
+        println!(r#"{{"ok":false,"error":"no pending pairing requests for {channel}"}}"#);
+        return ExitCode::from(1);
+    };
+    let before = array.len();
+    array.retain(|row| row.get("code").and_then(|v| v.as_str()) != Some(code));
+    if array.len() == before {
+        println!(r#"{{"ok":false,"error":"pairing code not found"}}"#);
+        return ExitCode::from(1);
+    }
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"code":{}}}"#,
+        serde_json::to_string(code).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
 }
 
 // --- shared helpers ------------------------------------------------------------
