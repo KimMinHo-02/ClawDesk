@@ -57,7 +57,11 @@ pub fn run() {
             commands::automations::create_automation,
             commands::automations::update_automation,
             commands::automations::set_automation_enabled,
-            commands::automations::delete_automation
+            commands::automations::delete_automation,
+            commands::diagnostics::get_gateway_status,
+            commands::diagnostics::get_update_status,
+            commands::diagnostics::get_agents,
+            commands::diagnostics::get_logs
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

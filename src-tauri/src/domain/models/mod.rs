@@ -2,6 +2,7 @@
 
 pub mod automations;
 pub mod channels;
+pub mod diagnostics;
 pub mod install;
 // `models` under `models` reads redundantly, but renaming would churn every
 // import path; the inception lint is suppressed for this one module.
@@ -29,6 +30,7 @@ pub use channels::{
     ChannelSummary, ChannelTokenState, ChannelTokenStatus, ChannelsOverview, DISCORD_PLUGIN_ID,
     SUPPORTED_CHANNELS,
 };
+pub use diagnostics::{AgentRow, LogEvent, LogsResult, UpdateStatusDetail};
 pub use install::{NpmEntry, ResolvedOpenClawEntry};
 pub use models::{
     clawdesk_secret_ref, secret_key_id, validate_base_url, validate_input_modalities,

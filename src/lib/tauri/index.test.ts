@@ -16,12 +16,16 @@ import {
   deleteChannelToken,
   deleteSecurityProfile,
   detectEnvironment,
+  getAgents,
   getAutomation,
   getAutomations,
   getChannelConfig,
   getChannels,
+  getGatewayStatus,
+  getLogs,
   getPluginRuntime,
   getToolPolicy,
+  getUpdateStatus,
   installOpenClaw,
   isTauriAppError,
   listPairingRequests,
@@ -88,6 +92,10 @@ describe("COMMANDS", () => {
     expect(COMMANDS.updateAutomation).toBe("update-automation");
     expect(COMMANDS.setAutomationEnabled).toBe("set-automation-enabled");
     expect(COMMANDS.deleteAutomation).toBe("delete-automation");
+    expect(COMMANDS.getGatewayStatus).toBe("get-gateway-status");
+    expect(COMMANDS.getUpdateStatus).toBe("get-update-status");
+    expect(COMMANDS.getAgents).toBe("get-agents");
+    expect(COMMANDS.getLogs).toBe("get-logs");
   });
 });
 
@@ -477,6 +485,52 @@ describe("Phase 7 wrappers", () => {
     mockInvoke.mockResolvedValueOnce(undefined);
     await expect(deleteAutomation("job-1")).resolves.toBeUndefined();
     expect(mockInvoke).toHaveBeenCalledWith("delete-automation", { jobId: "job-1" });
+  });
+});
+
+describe("Phase 8 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("getGatewayStatus invokes get-gateway-status without arguments", async () => {
+    const status = { state: "running", version: "2026.7.1-2", port: 18789 };
+    mockInvoke.mockResolvedValueOnce(status);
+    await expect(getGatewayStatus()).resolves.toBe(status);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("get-gateway-status");
+  });
+
+  it("getUpdateStatus invokes get-update-status and resolves the wire shape", async () => {
+    const detail = {
+      state: "update-available" as const,
+      current: "2026.7.1",
+      latest: "2026.7.1-2",
+    };
+    mockInvoke.mockResolvedValueOnce(detail);
+    await expect(getUpdateStatus()).resolves.toBe(detail);
+    expect(mockInvoke).toHaveBeenCalledWith("get-update-status");
+  });
+
+  it("getAgents invokes get-agents and resolves the rows", async () => {
+    const rows = [
+      { id: "main", default: true, name: "Main Agent", emoji: "🦞", workspace: "~/openclaw-main", bindings: 2 },
+      { id: "ops", default: false },
+    ];
+    mockInvoke.mockResolvedValueOnce(rows);
+    await expect(getAgents()).resolves.toBe(rows);
+    expect(mockInvoke).toHaveBeenCalledWith("get-agents");
+  });
+
+  it("getLogs invokes get-logs with the camelCase limit argument", async () => {
+    const result = {
+      lines: [{ kind: "raw" as const, line: "hello" }],
+      source: "openclaw-2026-08-26.log",
+      truncated: true,
+    };
+    mockInvoke.mockResolvedValueOnce(result);
+    await expect(getLogs(50)).resolves.toBe(result);
+    expect(mockInvoke).toHaveBeenCalledWith("get-logs", { limit: 50 });
   });
 });
 

@@ -530,6 +530,71 @@ export const ko = {
       fallback: "오류가 발생했습니다. 다시 시도해 주세요.",
     },
   },
+  profile: {
+    title: "프로필 / 업데이트 / 진단",
+    loading: "불러오는 중...",
+    unknown: "미확인",
+    versionUnknown: "버전 미확인",
+    refresh: "새로고침",
+
+    // Agents (profile)
+    agentsTitle: "프로필 (Agents)",
+    agentsNoAgents: "표시할 agent가 없습니다.",
+    agentsColumnId: "ID",
+    agentsColumnName: "이름",
+    agentsColumnDefault: "기본",
+    agentsColumnWorkspace: "워크스페이스",
+    agentsColumnBindings: "바인딩",
+    agentsDefaultBadge: "기본 agent",
+
+    // Update status
+    updateTitle: "업데이트 상태",
+    updateState: "상태",
+    updateStateUpdated: "최신 버전입니다.",
+    updateStateAvailable: "업데이트가 사용 가능합니다.",
+    updateStateUnknown: "상태를 확인할 수 없습니다.",
+    updateCurrent: "현재 버전",
+    updateLatest: "최신 버전",
+    updateNote: "업데이트 실행은 이 버전에서 제공하지 않습니다 (상태 표시만).",
+
+    // API (gateway) status
+    gatewayTitle: "API (게이트웨이) 상태",
+    gatewayState: "상태",
+    gatewayVersion: "버전",
+    gatewayPort: "포트",
+    gatewayNote: "게이트웨이 시작/중지 등 생명주기 작업은 이 버전에서 제공하지 않습니다.",
+
+    // Diagnostics
+    diagnosticsTitle: "진단 (Diagnostics)",
+    envOs: "OS",
+    envArchitecture: "아키텍처",
+    envNode: "Node.js",
+    envOpenClaw: "OpenClaw",
+    envNotInstalled: "미설치",
+    logsTitle: "로그 보기",
+    logsHint:
+      "최근 로그를 한 번(one-shot)으로 가져옵니다. 실시간 스트리밍(--follow)은 제공하지 않습니다.",
+    logsLimitLabel: "로그 줄 수",
+    logsRefresh: "새로고침",
+    logsRefreshing: "가져오는 중...",
+    logsLoading: "불러오는 중...",
+    logsEmpty: "로그 줄이 없습니다.",
+    logsSource: "로그 파일",
+    logsTruncatedNote: "더 이전의 로그는 생략되었을 수 있습니다.",
+
+    errors: {
+      "openclaw-agents-read-failed":
+        "OpenClaw agent 목록을 읽는 데 실패했습니다. OpenClaw 설치 상태를 확인해 주세요.",
+      "openclaw-logs-read-failed":
+        "OpenClaw 로그를 읽는 데 실패했습니다. OpenClaw 설치 상태를 확인해 주세요.",
+      "logs-limit-invalid": "로그 줄 수는 1~1000 사이여야 합니다.",
+      "openclaw-gateway-parse": "게이트웨이 상태를 해석하지 못했습니다. 다시 시도해 주세요.",
+      "openclaw-not-found": "OpenClaw를 찾을 수 없습니다. 먼저 OpenClaw를 설치해 주세요.",
+      "process-timeout": "작업이 시간 내로 완료되지 않았습니다. 다시 시도해 주세요.",
+      "process-failed": "작업 실행에 실패했습니다. 다시 시도해 주세요.",
+      fallback: "오류가 발생했습니다. 다시 시도해 주세요.",
+    },
+  },
 } as const;
 
 export type KoStrings = typeof ko;

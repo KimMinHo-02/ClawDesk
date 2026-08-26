@@ -57,6 +57,10 @@ export const COMMANDS = {
   updateAutomation: "update-automation",
   setAutomationEnabled: "set-automation-enabled",
   deleteAutomation: "delete-automation",
+  getGatewayStatus: "get-gateway-status",
+  getUpdateStatus: "get-update-status",
+  getAgents: "get-agents",
+  getLogs: "get-logs",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -446,6 +450,81 @@ export interface AutomationCreated {
   jobId: string;
 }
 
+// --- Phase 8 wire types ------------------------------------------------------
+//
+// Read-only display shapes (PRODUCT_CONTRACT §4.7). `current`/`latest` and
+// the optional agent/log fields are omitted on the wire when absent
+// (fail-soft — the display degrades, it never errors per row).
+
+/** `get-update-status` response: the Phase 1 state plus version strings. */
+export interface UpdateStatusDetail {
+  state: UpdateState;
+  /** Omitted when the state could not be determined. */
+  current?: string | null;
+  /** Omitted when the state could not be determined. */
+  latest?: string | null;
+}
+
+/** One row of `openclaw agents list --json` (read-only display). */
+export interface AgentRow {
+  id: string;
+  /** `true` for the default agent (`main`). */
+  default: boolean;
+  name?: string | null;
+  emoji?: string | null;
+  /** The agent's workspace directory, when reported. */
+  workspace?: string | null;
+  /** Channel binding count, when reported. */
+  bindings?: number | null;
+}
+
+/** One type-tagged event of `openclaw logs --limit <n> --json`.
+ *
+ * Tagged by `kind`; non-classifiable lines arrive as `raw`.
+ */
+export type LogEvent =
+  | {
+      kind: "log";
+      time?: string | null;
+      level?: string | null;
+      subsystem?: string | null;
+      message: string;
+      hostname?: string | null;
+      agentId?: string | null;
+      sessionId?: string | null;
+      channel?: string | null;
+    }
+  | {
+      kind: "meta";
+      file?: string | null;
+      source?: string | null;
+      sourceKind?: string | null;
+      service?: string | null;
+      cursor?: string | null;
+      size?: number | null;
+    }
+  | {
+      kind: "notice";
+      message?: string | null;
+      truncated?: boolean | null;
+    }
+  | {
+      kind: "raw";
+      line: string;
+    };
+
+/** `get-logs` response: the one-shot tail result.
+ *
+ * An empty tail (no log lines) is a successful zero-line result.
+ */
+export interface LogsResult {
+  lines: LogEvent[];
+  /** Log file from the first `meta` event, if any. */
+  source?: string | null;
+  /** True when a `notice` event reports truncation. */
+  truncated: boolean;
+}
+
 /**
  * Unified Rust `AppError` serialized across IPC: stable machine-readable
  * `code` plus a masked `message` (S3/S8). The frontend maps `code` to a
@@ -809,4 +888,31 @@ export async function setAutomationEnabled(jobId: string, enabled: boolean): Pro
 /** `delete-automation`: `automations remove <jobId> --json`. */
 export async function deleteAutomation(jobId: string): Promise<void> {
   return invoke<void>(COMMANDS.deleteAutomation, { jobId });
+}
+
+// --- Phase 8 command wrappers ------------------------------------------------
+
+/** `get-gateway-status`: Phase 1 gateway status (read-only reuse). */
+export async function getGatewayStatus(): Promise<GatewayStatus> {
+  return invoke<GatewayStatus>(COMMANDS.getGatewayStatus);
+}
+
+/** `get-update-status`: update state plus current/latest versions.
+ *
+ * Fail-soft: an undeterminable state resolves to `state: "unknown"` with no
+ * versions (a value, not an error — Phase 1 policy).
+ */
+export async function getUpdateStatus(): Promise<UpdateStatusDetail> {
+  return invoke<UpdateStatusDetail>(COMMANDS.getUpdateStatus);
+}
+
+/** `get-agents`: all agent rows (read-only display). */
+export async function getAgents(): Promise<AgentRow[]> {
+  return invoke<AgentRow[]>(COMMANDS.getAgents);
+}
+
+/** `get-logs`: one-shot tail of at most `limit` lines (1..=1000, validated
+ * in Rust before any CLI call; never `--follow`). */
+export async function getLogs(limit: number): Promise<LogsResult> {
+  return invoke<LogsResult>(COMMANDS.getLogs, { limit });
 }

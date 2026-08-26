@@ -1,6 +1,6 @@
 # Phase 8 — Profile / Update / Diagnostics
 
-Status: in progress
+Status: completed (2026-08-26)
 
 ## 목표
 
@@ -114,46 +114,46 @@ PRODUCT_CONTRACT §4.7의 **계정/프로필 정보 표시, OpenClaw update 상�
 ## Exit Criteria
 
 ### 1. IPC command (4개)
-- [ ] 4개 command 전부 kebab `rename` 속성으로 등록 (Phase 7.5 계약), `ipc_name_contract` **49/49** 통과
-- [ ] frontend COMMANDS/wrapper/test 4쌍이 Rust side와 1:1 일치
+- [x] 4개 command 전부 kebab `rename` 속성으로 등록 (Phase 7.5 계약), `ipc_name_contract` **49/49** 통과
+- [x] frontend COMMANDS/wrapper/test 4쌍이 Rust side와 1:1 일치
 
 ### 2. Profile / Agents
-- [ ] `get-agents` exact argv `["agents", "list", "--json"]` (contract test)
-- [ ] fail-soft row parser (unknown 필드 무시, 부재 → None)
-- [ ] non-zero / top-level malformed → `openclaw-agents-read-failed`
-- [ ] UI 표시 (한국어, default 마커 포함)
+- [x] `get-agents` exact argv `["agents", "list", "--json"]` (contract test)
+- [x] fail-soft row parser (unknown 필드 무시, 부재 → None)
+- [x] non-zero / top-level malformed → `openclaw-agents-read-failed`
+- [x] UI 표시 (한국어, default 마커 포함)
 
 ### 3. Update 상태
-- [ ] `get-update-status` exact argv `["update", "status", "--json"]`, current/latest parse
-- [ ] parse 실패/부재 → `Unknown` + version None (fail-soft, 신규 error 아님)
-- [ ] UI: 상태 + current/latest ("버전 차이" 표시)
+- [x] `get-update-status` exact argv `["update", "status", "--json"]`, current/latest parse
+- [x] parse 실패/부재 → `Unknown` + version None (fail-soft, 신규 error 아님)
+- [x] UI: 상태 + current/latest ("버전 차이" 표시)
 
 ### 4. API 상태 (gateway)
-- [ ] `get-gateway-status`가 Phase 1 `gateway_status` 재사용 (re-implementation 0)
-- [ ] UI: state/version/port
+- [x] `get-gateway-status`가 Phase 1 `gateway_status` 재사용 (re-implementation 0)
+- [x] UI: state/version/port
 
 ### 5. Diagnostics (logs)
-- [ ] `get-logs` exact argv `["logs", "--limit", "<n>", "--json"]`; `limit` 1..=1000 사전 검증, 위반 시 **0 CLI** (fail-closed)
-- [ ] type-tagged event(line-by-line) parse — `log`/`raw`/`meta`/`notice`, non-JSON line → `raw`
-- [ ] non-zero → `openclaw-logs-read-failed`; empty stdout → 0 lines (성공)
-- [ ] masking 적용 확인 (fake `sk-` 토큰 masked)
-- [ ] argv에 `--follow` 없음 (contract assert + fake reject)
-- [ ] UI 로그 뷰어 (limit 선택 + 새로고침)
+- [x] `get-logs` exact argv `["logs", "--limit", "<n>", "--json"]`; `limit` 1..=1000 사전 검증, 위반 시 **0 CLI** (fail-closed)
+- [x] type-tagged event(line-by-line) parse — `log`/`raw`/`meta`/`notice`, non-JSON line → `raw`
+- [x] non-zero → `openclaw-logs-read-failed`; empty stdout → 0 lines (성공)
+- [x] masking 적용 확인 (fake `sk-` 토큰 masked)
+- [x] argv에 `--follow` 없음 (contract assert + fake reject)
+- [x] UI 로그 뷰어 (limit 선택 + 새로고침)
 
 ### 6. 구조 유지
-- [ ] Phase 0~7 business logic 변경 0 (신규 파일 + `lib.rs` 등록 + `error.rs` +2 + fake handler + `ipc_name_contract` +4 외 기존 파일 로직 수정 0)
-- [ ] `ProcessRunner` 단일 spawn boundary 유지 (`Command::new` 유일 `runner.rs`)
-- [ ] 로그 파일 직접 filesystem 읽기 0 (CLI 경유만)
-- [ ] secret plain 노출 0 (S3/S8 — 로그·오류·테스트 출력)
+- [x] Phase 0~7 business logic 변경 0 (신규 파일 + `lib.rs` 등록 + `error.rs` +2 + fake handler + `ipc_name_contract` +4 외 기존 파일 로직 수정 0)
+- [x] `ProcessRunner` 단일 spawn boundary 유지 (`Command::new` 유일 `runner.rs`)
+- [x] 로그 파일 직접 filesystem 읽기 0 (CLI 경유만)
+- [x] secret plain 노출 0 (S3/S8 — 로그·오류·테스트 출력)
 
 ### 7. 테스트
-- [ ] 신규 `diagnostics_contract` 전부 통과
-- [ ] 기존 Phase 0~7 regression test 전부 유지 (수치 변동은 lib 신규 unit test + ipc_name_contract 49 외 0)
-- [ ] real E2E read-only flow opt-in 게이트 유지, 기본 `cargo test`에서 NOT-RUN
+- [x] 신규 `diagnostics_contract` 전부 통과
+- [x] 기존 Phase 0~7 regression test 전부 유지 (수치 변동은 lib 신규 unit test + ipc_name_contract 49 외 0)
+- [x] real E2E read-only flow opt-in 게이트 유지, 기본 `cargo test`에서 NOT-RUN
 
 ### 8. 검증
-- [ ] `cargo fmt --check`, `cargo check --all-targets`, `cargo test --all-targets`, `cargo clippy --all-targets`
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test`
+- [x] `cargo fmt --check`, `cargo check --all-targets`, `cargo test --all-targets`, `cargo clippy --all-targets`
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test`
 
 ## Non-Goals
 

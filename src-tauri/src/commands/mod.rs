@@ -12,6 +12,7 @@
 
 pub mod automations;
 pub mod channels;
+pub mod diagnostics;
 pub mod models;
 pub mod plugins;
 pub mod security;
