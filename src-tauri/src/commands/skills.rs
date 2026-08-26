@@ -21,7 +21,7 @@ where
 }
 
 /// All skills (`openclaw skills list --json`, read-only).
-#[tauri::command]
+#[tauri::command(rename = "list-skills")]
 pub async fn list_skills() -> Result<Vec<SkillRow>, AppError> {
     let service = SkillsService::production();
     run_blocking(move || service.list_skills()).await
@@ -31,7 +31,7 @@ pub async fn list_skills() -> Result<Vec<SkillRow>, AppError> {
 ///
 /// Unknown names fail with `skill-not-found` and perform zero writes; the
 /// change applies from the next new session (UI notice, not a CLI concern).
-#[tauri::command]
+#[tauri::command(rename = "set-skill-enabled")]
 pub async fn set_skill_enabled(skill_name: String, enabled: bool) -> Result<(), AppError> {
     let service = SkillsService::production();
     run_blocking(move || service.set_skill_enabled(&skill_name, enabled)).await

@@ -22,21 +22,21 @@ where
 
 /// The current tool policy (`openclaw config get tools --json`, read-only,
 /// redacted). Unset fields read as `null`/empty (fail-soft).
-#[tauri::command]
+#[tauri::command(rename = "get-tool-policy")]
 pub async fn get_tool_policy() -> Result<ToolPolicy, AppError> {
     let service = ToolPolicyService::production();
     run_blocking(move || service.get_tool_policy()).await
 }
 
 /// Sets `tools.profile` (enum-validated; two-step config write).
-#[tauri::command]
+#[tauri::command(rename = "set-tool-profile")]
 pub async fn set_tool_profile(profile: String) -> Result<(), AppError> {
     let service = ToolPolicyService::production();
     run_blocking(move || service.set_tool_profile(&profile)).await
 }
 
 /// Replaces the whole `tools.allow` array (entry-validated, `--replace`).
-#[tauri::command]
+#[tauri::command(rename = "set-tool-allow")]
 pub async fn set_tool_allow(entries: Vec<String>) -> Result<(), AppError> {
     let service = ToolPolicyService::production();
     run_blocking(move || service.set_tool_allow(&entries)).await
@@ -44,14 +44,14 @@ pub async fn set_tool_allow(entries: Vec<String>) -> Result<(), AppError> {
 
 /// Replaces the whole `tools.deny` array (entry-validated, `--replace`).
 /// Deny wins over allow.
-#[tauri::command]
+#[tauri::command(rename = "set-tool-deny")]
 pub async fn set_tool_deny(entries: Vec<String>) -> Result<(), AppError> {
     let service = ToolPolicyService::production();
     run_blocking(move || service.set_tool_deny(&entries)).await
 }
 
 /// Sets `tools.exec.mode` (enum-validated; two-step config write).
-#[tauri::command]
+#[tauri::command(rename = "set-exec-mode")]
 pub async fn set_exec_mode(mode: String) -> Result<(), AppError> {
     let service = ToolPolicyService::production();
     run_blocking(move || service.set_exec_mode(&mode)).await

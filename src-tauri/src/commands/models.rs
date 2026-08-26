@@ -23,14 +23,14 @@ where
 }
 
 /// Lists all providers with computed API-key registration state.
-#[tauri::command]
+#[tauri::command(rename = "list-providers")]
 pub async fn list_providers() -> Result<Vec<ProviderSummary>, AppError> {
     let service = ModelService::production();
     run_blocking(move || service.list_providers()).await
 }
 
 /// Full detail of one provider (redacted; never includes key values).
-#[tauri::command]
+#[tauri::command(rename = "get-provider")]
 pub async fn get_provider(provider_id: String) -> Result<ProviderDetail, AppError> {
     let service = ModelService::production();
     run_blocking(move || service.get_provider(&provider_id)).await
@@ -40,42 +40,42 @@ pub async fn get_provider(provider_id: String) -> Result<ProviderDetail, AppErro
 ///
 /// The body never contains an API key (S7); key management is a separate
 /// command pair.
-#[tauri::command]
+#[tauri::command(rename = "save-provider")]
 pub async fn save_provider(provider: ProviderInput) -> Result<(), AppError> {
     let service = ModelService::production();
     run_blocking(move || service.save_provider(&provider)).await
 }
 
 /// Deletes a provider (and its ClawDesk-managed API key, if any).
-#[tauri::command]
+#[tauri::command(rename = "delete-provider")]
 pub async fn delete_provider(provider_id: String) -> Result<(), AppError> {
     let service = ModelService::production();
     run_blocking(move || service.delete_provider(&provider_id)).await
 }
 
 /// All models (`openclaw models list`, read-only).
-#[tauri::command]
+#[tauri::command(rename = "list-models")]
 pub async fn list_models() -> Result<Vec<ModelRow>, AppError> {
     let service = ModelService::production();
     run_blocking(move || service.list_models()).await
 }
 
 /// The current default `provider/model` reference, if set.
-#[tauri::command]
+#[tauri::command(rename = "get-default-model")]
 pub async fn get_default_model() -> Result<Option<String>, AppError> {
     let service = ModelService::production();
     run_blocking(move || service.get_default_model()).await
 }
 
 /// Sets the default model (`openclaw models set <provider/model>`).
-#[tauri::command]
+#[tauri::command(rename = "set-default-model")]
 pub async fn set_default_model(model_ref: String) -> Result<(), AppError> {
     let service = ModelService::production();
     run_blocking(move || service.set_default_model(&model_ref)).await
 }
 
 /// The current global thinking (reasoning effort) default, if set.
-#[tauri::command]
+#[tauri::command(rename = "get-reasoning-default")]
 pub async fn get_reasoning_default() -> Result<Option<String>, AppError> {
     let service = ModelService::production();
     run_blocking(move || {
@@ -90,7 +90,7 @@ pub async fn get_reasoning_default() -> Result<Option<String>, AppError> {
 ///
 /// `level` is a wire id (`off|minimal|low|medium|high|xhigh|adaptive|max|
 /// ultra`); unknown values are rejected with `thinking-level-invalid`.
-#[tauri::command]
+#[tauri::command(rename = "set-reasoning-default")]
 pub async fn set_reasoning_default(level: String) -> Result<(), AppError> {
     let service = ModelService::production();
     run_blocking(move || service.set_thinking_default(&level)).await
@@ -99,21 +99,21 @@ pub async fn set_reasoning_default(level: String) -> Result<(), AppError> {
 /// Registers (or re-registers) the provider's API key.
 ///
 /// The key travels to DPAPI only (S7); OpenClaw receives an exec SecretRef.
-#[tauri::command]
+#[tauri::command(rename = "set-provider-api-key")]
 pub async fn set_provider_api_key(provider_id: String, api_key: String) -> Result<(), AppError> {
     let service = ApiKeyService::production();
     run_blocking(move || service.set_api_key(&provider_id, &api_key)).await
 }
 
 /// Deletes the provider's managed API key (config ref + DPAPI entry).
-#[tauri::command]
+#[tauri::command(rename = "delete-provider-api-key")]
 pub async fn delete_provider_api_key(provider_id: String) -> Result<(), AppError> {
     let service = ApiKeyService::production();
     run_blocking(move || service.delete_api_key(&provider_id)).await
 }
 
 /// Registration state of all ClawDesk-managed API keys (non-secret).
-#[tauri::command]
+#[tauri::command(rename = "list-api-keys")]
 pub async fn list_api_keys() -> Result<Vec<ApiKeyStatus>, AppError> {
     let service = ApiKeyService::production();
     run_blocking(move || service.list_api_keys()).await

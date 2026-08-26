@@ -14,7 +14,8 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 | 5     | Tools / Security                       | tool permission, security profile                                                                                                   | completed   |
 | 6     | Channels                               | Discord/Telegram 채널 연결·설정                                                                                                     | completed   |
 | 7     | Automations                            | automation 관리 (생성/수정/삭제/활성화)                                                                                             | completed   |
-| 8     | Profile / Update / Diagnostics         | profile, OpenClaw update 상태, API 상태, diagnostics                                                                                | not started |
+| 7.5   | Phase 0–7 Integration Wiring Fix       | Phase 0~7 frontend/Tauri IPC/Rust command wiring을 실제 `tauri dev` runtime에서 정상 연결되도록 수정 (cargo default binary + IPC command name kebab rename) | completed   |
+| 8     | Profile / Update / Diagnostics         | profile, OpenClaw update 상태, API 상태, diagnostics                                                                                | in progress |
 | 9     | Integrated Chat                        | 앱 내 chat (모델별 reasoning effort)                                                                                                | not started |
 | 10    | Windows Release                        | NSIS installer, 코드사인, 릴리스 파이프라인                                                                                         | not started |
 
@@ -23,3 +24,4 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 - Phase 0 exit criteria 충족 전 Phase 1 구현 시작 금지.
 - phase 범위 확장/축소는 해당 `PHASE_XX.md` 수정 후 진행.
 - real OpenClaw mutation은 Phase 2+ 에서도 explicit real E2E layer(opt-in)에서만.
+- Phase 8은 Phase 7.5 exit criteria PASS 이후에만 시작한다.

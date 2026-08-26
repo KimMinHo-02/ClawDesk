@@ -22,7 +22,7 @@ where
 }
 
 /// All plugins (`openclaw plugins list --json`, cold read).
-#[tauri::command]
+#[tauri::command(rename = "list-plugins")]
 pub async fn list_plugins() -> Result<Vec<PluginRow>, AppError> {
     let service = PluginsService::production();
     run_blocking(move || service.list_plugins()).await
@@ -32,7 +32,7 @@ pub async fn list_plugins() -> Result<Vec<PluginRow>, AppError> {
 ///
 /// On failure the frontend re-queries `list-plugins` and shows the actual
 /// state (no optimistic updates).
-#[tauri::command]
+#[tauri::command(rename = "set-plugin-enabled")]
 pub async fn set_plugin_enabled(plugin_id: String, enabled: bool) -> Result<(), AppError> {
     let service = PluginsService::production();
     run_blocking(move || service.set_plugin_enabled(&plugin_id, enabled)).await
@@ -43,7 +43,7 @@ pub async fn set_plugin_enabled(plugin_id: String, enabled: bool) -> Result<(), 
 ///
 /// On-demand only: this loads plugin modules, so the UI must not call it
 /// while loading the list.
-#[tauri::command]
+#[tauri::command(rename = "get-plugin-runtime")]
 pub async fn get_plugin_runtime(plugin_id: String) -> Result<PluginRuntime, AppError> {
     let service = PluginsService::production();
     run_blocking(move || service.get_plugin_runtime(&plugin_id)).await
