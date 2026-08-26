@@ -16,7 +16,7 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 | 7     | Automations                            | automation 관리 (생성/수정/삭제/활성화)                                                                                             | completed   |
 | 7.5   | Phase 0–7 Integration Wiring Fix       | Phase 0~7 frontend/Tauri IPC/Rust command wiring을 실제 `tauri dev` runtime에서 정상 연결되도록 수정 (cargo default binary + IPC command name kebab rename) | completed   |
 | 8     | Profile / Update / Diagnostics         | profile, OpenClaw update 상태, API 상태, diagnostics                                                                                | completed   |
-| 8.1   | Node.js Update                         | Node.js가 지원하지 않는 버전이면 winget 경유 one-shot 업데이트 (Setup UI). real mutation은 explicit 사용자 행동/수동 smoke에서만        | not started |
+| 8.1   | Node.js Update                         | Node.js가 지원하지 않는 버전이면 winget 경유 one-shot 업데이트 (Setup UI). real mutation은 explicit 사용자 행동/수동 smoke에서만        | completed   |
 | 9     | Integrated Chat                        | 앱 내 chat (모델별 reasoning effort)                                                                                                | not started |
 | 10    | Windows Release                        | NSIS installer, 코드사인, 릴리스 파이프라인                                                                                         | not started |
 

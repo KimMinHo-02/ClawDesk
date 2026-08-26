@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getStrings } from "../../i18n/ko";
-import type { EnvironmentReport, InstallResult } from "../../lib/tauri";
+import type { EnvironmentReport, InstallResult, NodeDetection } from "../../lib/tauri";
 
 const mockDetectEnvironment = vi.fn();
 const mockInstallOpenClaw = vi.fn();
+const mockUpdateNode = vi.fn();
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("../../lib/tauri", async (importOriginal) => {
     ...actual,
     detectEnvironment: (...args: unknown[]) => mockDetectEnvironment(...args),
     installOpenClaw: (...args: unknown[]) => mockInstallOpenClaw(...args),
+    updateNode: (...args: unknown[]) => mockUpdateNode(...args),
   };
 });
 
@@ -48,6 +50,7 @@ describe("SetupFeature", () => {
   beforeEach(() => {
     mockDetectEnvironment.mockReset();
     mockInstallOpenClaw.mockReset();
+    mockUpdateNode.mockReset();
   });
 
   // RTL auto-cleanup needs framework globals; clean the DOM explicitly.
@@ -168,5 +171,118 @@ describe("SetupFeature", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(t.errors.fallback);
+  });
+});
+
+describe("SetupFeature Node.js update (Phase 8.1)", () => {
+  beforeEach(() => {
+    mockDetectEnvironment.mockReset();
+    mockInstallOpenClaw.mockReset();
+    mockUpdateNode.mockReset();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("offers the one-shot update when the detected Node is unsupported", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(
+      report({ node: { status: "found", version: "23.0.0" } }),
+    );
+    render(<SetupFeature />);
+
+    const button = await screen.findByRole("button", { name: t.nodeUpdateButton });
+    expect(button.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("does not offer the update for a supported or missing Node", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(report());
+    render(<SetupFeature />);
+    await screen.findByRole("button", { name: t.installButton });
+    expect(screen.queryByRole("button", { name: t.nodeUpdateButton })).toBeNull();
+    cleanup();
+
+    mockDetectEnvironment.mockResolvedValueOnce(report({ node: { status: "not-found" } }));
+    render(<SetupFeature />);
+    await screen.findByRole("button", { name: t.installButton });
+    expect(screen.queryByRole("button", { name: t.nodeUpdateButton })).toBeNull();
+  });
+
+  it("merges the returned detection into the report on success", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(
+      report({ node: { status: "found", version: "18.19.0" } }),
+    );
+    mockUpdateNode.mockResolvedValueOnce({ status: "found", version: "24.15.0" });
+    render(<SetupFeature />);
+
+    fireEvent.click(await screen.findByRole("button", { name: t.nodeUpdateButton }));
+
+    expect(await screen.findByText(`${t.nodeVersion} 24.15.0`)).toBeTruthy();
+    // The node is now supported: no update button, install becomes enabled.
+    expect(screen.queryByRole("button", { name: t.nodeUpdateButton })).toBeNull();
+    const install = screen.getByRole("button", { name: t.installButton });
+    expect(install.hasAttribute("disabled")).toBe(false);
+    expect(mockUpdateNode).toHaveBeenCalledTimes(1);
+    expect(mockUpdateNode).toHaveBeenCalledWith();
+  });
+
+  it("shows the stable-code message when the update fails", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(
+      report({ node: { status: "found", version: "18.19.0" } }),
+    );
+    mockUpdateNode.mockRejectedValueOnce({
+      code: "winget-not-found",
+      message: "raw detail",
+    });
+    render(<SetupFeature />);
+
+    fireEvent.click(await screen.findByRole("button", { name: t.nodeUpdateButton }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(t.errors["winget-not-found"]);
+    expect(alert.textContent).not.toContain("raw detail");
+    // The offer stays available for a retry.
+    expect(screen.getByRole("button", { name: t.nodeUpdateButton })).toBeTruthy();
+  });
+
+  it("prevents duplicate update invocations while in flight", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(
+      report({ node: { status: "found", version: "18.19.0" } }),
+    );
+    let resolveUpdate!: (value: NodeDetection) => void;
+    mockUpdateNode.mockImplementation(
+      () =>
+        new Promise<NodeDetection>((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+    render(<SetupFeature />);
+
+    const button = await screen.findByRole("button", { name: t.nodeUpdateButton });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(mockUpdateNode).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(t.nodeUpdating)).toBeTruthy();
+
+    resolveUpdate({ status: "found", version: "24.15.0" });
+    await waitFor(() => expect(screen.getByText(`${t.nodeVersion} 24.15.0`)).toBeTruthy());
+  });
+
+  it("offers the update from the unsupported-node-version install error", async () => {
+    mockDetectEnvironment.mockResolvedValueOnce(report());
+    mockInstallOpenClaw.mockRejectedValueOnce({
+      code: "unsupported-node-version",
+      message: "raw detail",
+    });
+    render(<SetupFeature />);
+
+    fireEvent.click(await screen.findByRole("button", { name: t.installButton }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(t.errors["unsupported-node-version"]);
+    expect(alert.textContent).not.toContain("raw detail");
+    const updateButton = screen.getByRole("button", { name: t.nodeUpdateButton });
+    expect(updateButton.hasAttribute("disabled")).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 # Phase 8.1 — Node.js Update (unsupported 버전 one-shot 업데이트)
 
-Status: not started
+Status: completed (2026-08-26)
 
 ## 목표
 
@@ -129,49 +129,49 @@ winget 경유 **one-shot Node.js 업데이트**를 제공하고, 성공 시 재-
 
 ### 1. IPC command (1개)
 
-- [ ] `update-node` kebab `rename` 속성으로 등록 (Phase 7.5 계약), `ipc_name_contract` **50/50** 통과
-- [ ] frontend COMMANDS/wrapper/test 1쌍이 Rust side와 1:1 일치
+- [x] `update-node` kebab `rename` 속성으로 등록 (Phase 7.5 계약), `ipc_name_contract` **50/50** 통과
+- [x] frontend COMMANDS/wrapper/test 1쌍이 Rust side와 1:1 일치
 
 ### 2. Preconditions (fail-closed)
 
-- [ ] supported 버전 ⇒ `node-update-not-needed` + **0 winget** (contract assert)
-- [ ] not-found ⇒ `node-not-found` + **0 winget** (contract assert)
-- [ ] unsupported 버전만 winget update 진행
+- [x] supported 버전 ⇒ `node-update-not-needed` + **0 winget** (contract assert)
+- [x] not-found ⇒ `node-not-found` + **0 winget** (contract assert)
+- [x] unsupported 버전만 winget update 진행
 
 ### 3. winget 실행
 
-- [ ] exact argv byte-match (contract test, user input 0)
-- [ ] winget non-zero ⇒ `node-update-failed`, timeout(900s) ⇒ `process-timeout`
-- [ ] winget executable 부재 ⇒ `winget-not-found`
+- [x] exact argv byte-match (contract test, user input 0)
+- [x] winget non-zero ⇒ `node-update-failed`, timeout(900s) ⇒ `process-timeout`
+- [x] winget executable 부재 ⇒ `winget-not-found`
 
 ### 4. 재-detect 검증
 
-- [ ] MSI 후보 경로 우선 → PATH fallback probe, `parse_node_version` 재사용
-- [ ] 재-detect가 `Found` + supported 일 때만 성공, 아니면 `node-update-failed` (winget exit 0 무관)
-- [ ] 반환 타입 = 기존 `NodeDetection` wire (신규 wire type 0)
+- [x] MSI 후보 경로 우선 → PATH fallback probe, `parse_node_version` 재사용
+- [x] 재-detect가 `Found` + supported 일 때만 성공, 아니면 `node-update-failed` (winget exit 0 무관)
+- [x] 반환 타입 = 기존 `NodeDetection` wire (신규 wire type 0)
 
 ### 5. UI
 
-- [ ] Setup: unsupported 버전 표시 + "Node.js 업데이트" 버튼 (로딩/성공/실패 상태, 한국어)
-- [ ] 성공 시 node 줄이 supported + 새 버전으로 갱신되고 OpenClaw 설치 흐름 진행 가능
+- [x] Setup: unsupported 버전 표시 + "Node.js 업데이트" 버튼 (로딩/성공/실패 상태, 한국어)
+- [x] 성공 시 node 줄이 supported + 새 버전으로 갱신되고 OpenClaw 설치 흐름 진행 가능
 
 ### 6. 구조 유지
 
-- [ ] Phase 0~8 business logic 변경 0 (신규 파일 + `lib.rs` 등록 + `error.rs` +3 + `ipc_name_contract` +1 + mod 등록 외 기존 파일 로직 수정 0)
-- [ ] `ProcessRunner` 단일 spawn boundary 유지 (`Command::new` 유일 `runner.rs`)
-- [ ] shell string 0, user input shell 보간 0 (S1/S2)
-- [ ] winget 출력 masking pipeline 경유 확인 (fake `sk-` 토큰 masked — S3/S8)
+- [x] Phase 0~8 business logic 변경 0 (신규 파일 + `lib.rs` 등록 + `error.rs` +3 + `ipc_name_contract` +1 + mod/Cargo.toml 등록 + `real_e2e.rs` baseline 1개 외 기존 파일 로직 수정 0)
+- [x] `ProcessRunner` 단일 spawn boundary 유지 (`Command::new` 유일 `runner.rs`)
+- [x] shell string 0, user input shell 보간 0 (S1/S2)
+- [x] winget 출력 masking pipeline 경유 확인 (fake `sk-` 토큰 masked — S3/S8)
 
 ### 7. 테스트
 
-- [ ] 신규 `node_update_contract` 전부 통과
-- [ ] 기존 Phase 0~8 regression test 전부 유지 (수치 변동은 lib 신규 unit test + ipc_name_contract 50 외 0)
-- [ ] real E2E read-only baseline opt-in 게이트 유지, 기본 `cargo test`에서 NOT-RUN (real winget install 0)
+- [x] 신규 `node_update_contract` 전부 통과 (10/10)
+- [x] 기존 Phase 0~8 regression test 전부 유지 (수치 변동은 lib 신규 unit test 14개 + ipc_name_contract 50 + 신규 기능 frontend 테스트 외 0)
+- [x] real E2E read-only baseline opt-in 게이트 유지, 기본 `cargo test`에서 NOT-RUN (real winget install 0)
 
 ### 8. 검증
 
-- [ ] `cargo fmt --check`, `cargo check --all-targets`, `cargo test --all-targets`, `cargo clippy --all-targets`
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm test`
+- [x] `cargo fmt --check`, `cargo check --all-targets`, `cargo test --all-targets`, `cargo clippy --all-targets`
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm test`
 
 ## Non-Goals
 

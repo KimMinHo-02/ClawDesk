@@ -61,6 +61,15 @@ export function nodeStateOf(node: NodeDetection): NodeState {
     : { kind: "unsupported", version: node.version };
 }
 
+/**
+ * Whether the Phase 8.1 one-shot Node.js update is offered: the Node is
+ * PRESENT but unsupported. A missing Node stays guidance-only (Phase 2
+ * contract — no auto-install).
+ */
+export function isNodeUpdateNeeded(node: NodeDetection): boolean {
+  return nodeStateOf(node).kind === "unsupported";
+}
+
 /** OpenClaw state for display. */
 export type OpenClawUiState =
   | { kind: "not-installed" }
@@ -85,13 +94,18 @@ export function canInstall(report: EnvironmentReport): boolean {
   return nodeStateOf(report.node).kind === "supported";
 }
 
+/** The stable `AppError` code of an IPC rejection, when structured. */
+export function errorCodeOf(err: unknown): string | undefined {
+  return isTauriAppError(err) ? err.code : undefined;
+}
+
 /**
  * Maps any IPC failure to a Korean user message using the stable
  * `AppError` code. Unknown codes and non-`AppError` rejections fall back
  * to the generic message.
  */
 export function errorToMessage(err: unknown): string {
-  const code = isTauriAppError(err) ? err.code : undefined;
+  const code = errorCodeOf(err);
   const errors = installStrings.errors as Record<string, string>;
   return (code !== undefined && errors[code]) || errors.fallback;
 }

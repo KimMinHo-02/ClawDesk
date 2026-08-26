@@ -61,6 +61,7 @@ export const COMMANDS = {
   getUpdateStatus: "get-update-status",
   getAgents: "get-agents",
   getLogs: "get-logs",
+  updateNode: "update-node",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -915,4 +916,14 @@ export async function getAgents(): Promise<AgentRow[]> {
  * in Rust before any CLI call; never `--follow`). */
 export async function getLogs(limit: number): Promise<LogsResult> {
   return invoke<LogsResult>(COMMANDS.getLogs, { limit });
+}
+
+// --- Phase 8.1 command wrappers ------------------------------------------------
+
+/** `update-node`: one-shot Node.js update (winget) for an unsupported
+ * detected version. Guarded in Rust: an already-supported or missing Node
+ * rejects with a stable code and 0 OS mutation. Returns the post-update
+ * detection (the existing `NodeDetection` wire type). */
+export async function updateNode(): Promise<NodeDetection> {
+  return invoke<NodeDetection>(COMMANDS.updateNode);
 }

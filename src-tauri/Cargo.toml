@@ -19,6 +19,14 @@ name = "clawdesk-fake-npm"
 path = "fixtures/fake-npm/main.rs"
 
 [[bin]]
+name = "clawdesk-fake-winget"
+path = "fixtures/fake-winget/main.rs"
+
+[[bin]]
+name = "clawdesk-fake-node"
+path = "fixtures/fake-node/main.rs"
+
+[[bin]]
 name = "clawdesk-secret-resolver"
 path = "resolver/main.rs"
 
