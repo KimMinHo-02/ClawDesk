@@ -2,6 +2,7 @@ import { AutomationsFeature } from "./features/automations/AutomationsFeature";
 import { ChannelsFeature } from "./features/channels/ChannelsFeature";
 import { ModelsFeature } from "./features/models/ModelsFeature";
 import { PluginsFeature } from "./features/plugins/PluginsFeature";
+import { ProfileFeature } from "./features/profile/ProfileFeature";
 import { SetupFeature } from "./features/setup/SetupFeature";
 import { SkillsFeature } from "./features/skills/SkillsFeature";
 import { ToolsSecurityFeature } from "./features/tools-security/ToolsSecurityFeature";
@@ -21,6 +22,7 @@ function App() {
       <ToolsSecurityFeature />
       <ChannelsFeature />
       <AutomationsFeature />
+      <ProfileFeature />
     </main>
   );
 }

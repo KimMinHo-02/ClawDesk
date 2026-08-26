@@ -6,6 +6,7 @@ pub use services::api_key::ApiKeyService;
 pub use services::automations::AutomationService;
 pub use services::channel_token::ChannelTokenService;
 pub use services::channels::ChannelService;
+pub use services::diagnostics::DiagnosticsService;
 pub use services::environment::{
     default_openclaw_search_dirs, EnvironmentReport, EnvironmentService,
 };

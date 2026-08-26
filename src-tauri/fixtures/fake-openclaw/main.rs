@@ -71,6 +71,12 @@ fn main() -> ExitCode {
     if matches_command(&args, &["update", "status", "--json"]) {
         return handle_update();
     }
+    if matches_command(&args, &["agents", "list", "--json"]) {
+        return handle_agents_list();
+    }
+    if args.first().map(|a| a.as_str()) == Some("logs") {
+        return handle_logs(&args[1..]);
+    }
     if matches_command(&args, &["config", "file", "--json"]) {
         return handle_config_file();
     }
@@ -1764,6 +1770,164 @@ fn handle_automations_remove(id: &str) -> ExitCode {
         r#"{{"ok":true,"id":{}}}"#,
         serde_json::to_string(id).unwrap_or_default()
     );
+    ExitCode::SUCCESS
+}
+
+// --- Phase 8: profile / update / diagnostics simulation ----------------------
+//
+// Read-only surface (PRODUCT_CONTRACT §4.7):
+//
+// - `agents list --json` — explicit `agents.list` rows pass through
+//   (contract fixtures); otherwise the built-in fixture (the `main` default
+//   agent + one other identity)
+// - `logs --limit <n> --json` — one-shot tail: type-tagged line events
+//   (`meta` + `log`/`raw` lines capped at `<n>` + `notice` truncation hint).
+//   `--follow` (streaming) is a non-goal and rejected with exit 2, exactly
+//   like the real CLI rejects unsupported flags. `logs.empty = true`
+//   yields a zero-line tail (empty stdout, exit 0).
+
+/// The synthetic log line pool (deterministic; newest last). One line
+/// carries a fake `sk-` token to verify the S8 masking pipeline end to end
+/// (fake token only — never a real secret).
+const LOG_POOL: &[&str] = &[
+    r#"{"type":"log","time":"2026-08-26T10:00:00.000Z","level":"info","subsystem":"gateway","message":"gateway started on 127.0.0.1:18789","hostname":"clawdesk-host"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:01.000Z","level":"info","subsystem":"agent","message":"agent session bootstrapped","agentId":"main","sessionId":"s-0001"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:02.000Z","level":"debug","subsystem":"config","message":"config loaded from user profile"}"#,
+    r#"{"type":"raw","line":"unparsed legacy line 123"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:03.000Z","level":"info","subsystem":"channel","message":"discord channel connected"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:04.000Z","level":"warn","subsystem":"model","message":"model response slow, retrying"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:05.000Z","level":"info","subsystem":"skill","message":"skill weather loaded"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:06.000Z","level":"info","subsystem":"automation","message":"automation job-1 scheduled"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:07.000Z","level":"error","subsystem":"gateway","message":"upstream reset by peer"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:08.000Z","level":"info","subsystem":"auth","message":"provider token verified"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:09.000Z","level":"info","subsystem":"session","message":"session s-0001 completed"}"#,
+    r#"{"type":"log","time":"2026-08-26T10:00:10.000Z","level":"info","subsystem":"auth","message":"configured provider token sk-fake123456789 loaded"}"#,
+];
+
+/// The built-in agent fixture rows (used when the state has no explicit
+/// `agents.list`).
+fn builtin_agent_rows() -> Vec<Value> {
+    vec![
+        Value::Object(Map::from_iter([
+            ("id".to_string(), Value::String("main".to_string())),
+            ("default".to_string(), Value::Bool(true)),
+            ("name".to_string(), Value::String("Main Agent".to_string())),
+            ("emoji".to_string(), Value::String("🦞".to_string())),
+            (
+                "workspace".to_string(),
+                Value::String("~/openclaw-main".to_string()),
+            ),
+            ("bindings".to_string(), Value::from(2u64)),
+        ])),
+        Value::Object(Map::from_iter([
+            ("id".to_string(), Value::String("ops".to_string())),
+            ("default".to_string(), Value::Bool(false)),
+            ("name".to_string(), Value::String("Ops Agent".to_string())),
+            (
+                "workspace".to_string(),
+                Value::String("~/openclaw-ops".to_string()),
+            ),
+        ])),
+    ]
+}
+
+fn handle_agents_list() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let rows = match state
+        .get("agents")
+        .and_then(|a| a.get("list"))
+        .and_then(|l| l.as_array())
+    {
+        Some(rows) => rows.clone(),
+        None => builtin_agent_rows(),
+    };
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(Map::from_iter([
+            ("ok".to_string(), Value::Bool(true)),
+            ("agents".to_string(), Value::Array(rows)),
+        ])))
+        .unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_logs(args: &[String]) -> ExitCode {
+    // `--follow` is a non-goal (streaming): reject exactly like the real
+    // CLI rejects unsupported flags.
+    if args.iter().any(|arg| arg == "--follow") {
+        eprintln!("fake-openclaw: logs rejects --follow (streaming is not supported)");
+        return ExitCode::from(2);
+    }
+    // Shape: `logs --limit <n> --json` (one-shot tail only). Argument
+    // validation runs first — the real CLI rejects unknown flags before
+    // any behavior simulation (parallel tests may inherit an unrelated
+    // `CLAWDESK_FAKE_BEHAVIOR` through the process environment).
+    let mut limit: Option<u64> = None;
+    let mut json = false;
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--limit" => {
+                index += 1;
+                let raw = args.get(index).map(|a| a.as_str()).unwrap_or("");
+                match raw.parse::<u64>() {
+                    Ok(value) => limit = Some(value),
+                    Err(_) => {
+                        eprintln!("fake-openclaw: invalid --limit value: {raw}");
+                        return ExitCode::from(2);
+                    }
+                }
+            }
+            "--json" => json = true,
+            other => {
+                eprintln!("fake-openclaw: logs: unknown argument: {other}");
+                return ExitCode::from(2);
+            }
+        }
+        index += 1;
+    }
+    if !json {
+        eprintln!("fake-openclaw: logs: --json is required");
+        return ExitCode::from(2);
+    }
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    // `logs.empty = true` → a zero-line tail (empty stdout, exit 0).
+    if state
+        .get("logs")
+        .and_then(|l| l.get("empty"))
+        .and_then(|v| v.as_bool())
+        == Some(true)
+    {
+        return ExitCode::SUCCESS;
+    }
+    let count = limit.unwrap_or(200).min(LOG_POOL.len() as u64) as usize;
+    let mut out = String::new();
+    out.push_str(&format!(
+        "{{\"type\":\"meta\",\"file\":\"openclaw-2026-08-26.log\",\"source\":\"file log\",\"sourceKind\":\"file\",\"service\":\"gateway\",\"cursor\":\"{}\",\"size\":{}}}\n",
+        LOG_POOL.len() - count,
+        4096
+    ));
+    for line in LOG_POOL.iter().rev().take(count) {
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.push_str(
+        "{\"type\":\"notice\",\"message\":\"showing most recent lines\",\"truncated\":true}\n",
+    );
+    print!("{out}");
     ExitCode::SUCCESS
 }
 

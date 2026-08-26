@@ -142,6 +142,30 @@ fn real_openclaw_automations_flow() {
     }
 }
 
+/// Phase 8 profile/diagnostics flow against the real OpenClaw — same triple
+/// gate.
+///
+/// Read-only exclusively: `get-gateway-status`, `get-update-status`,
+/// `get-agents`, `get-logs` (limit 50). No mutation of any kind (0 config
+/// writes, no gateway lifecycle, no update run). The live `agents list`
+/// JSON schema is not documented by OpenClaw, so the row schema baseline is
+/// informational (fail-soft parse, NOT-VERIFIED on failure — not asserted).
+#[test]
+fn real_openclaw_profile_diagnostics_flow() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (profile/diagnostics): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::profile_diagnostics_flow();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (profile/diagnostics): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
@@ -153,8 +177,8 @@ mod real {
     use std::time::Duration;
 
     use clawdesk_lib::application::{
-        ChannelService, ChannelTokenService, EnvironmentReport, EnvironmentService, InstallResult,
-        InstallService, ModelInput, ModelService, ProviderInput,
+        ChannelService, ChannelTokenService, DiagnosticsService, EnvironmentReport,
+        EnvironmentService, InstallResult, InstallService, ModelInput, ModelService, ProviderInput,
     };
     use clawdesk_lib::domain::models::channels::ChannelTokenState;
     use clawdesk_lib::domain::models::OpenClawStatus;
@@ -687,6 +711,68 @@ mod real {
             "test-owned job must be gone after remove"
         );
         eprintln!("real E2E (automations): test-owned job round-trip OK");
+    }
+
+    /// Phase 8: read-only profile/diagnostics baseline (mutation 0).
+    ///
+    /// All four reads are informational — a live CLI shape change must not
+    /// fail the flow, so failures are reported, not asserted (fail-soft
+    /// contract §2/§5).
+    pub fn profile_diagnostics_flow() {
+        let environment = EnvironmentService::production();
+        let report = environment
+            .detect_environment()
+            .expect("environment detection for profile/diagnostics E2E");
+        let OpenClawStatus::Detected { version, .. } = &report.openclaw else {
+            eprintln!("real E2E (profile/diagnostics): NOT-RUN (OpenClaw not detected)");
+            return;
+        };
+        eprintln!(
+            "real E2E (profile/diagnostics): OpenClaw detected (version: {:?})",
+            version
+        );
+
+        let service = DiagnosticsService::production();
+
+        match service.gateway_status() {
+            Ok(status) => eprintln!(
+                "real E2E (profile/diagnostics): gateway state={} version={:?} port={:?}",
+                status.state, status.version, status.port
+            ),
+            Err(err) => {
+                eprintln!("real E2E (profile/diagnostics): gateway NOT-VERIFIED ({err})")
+            }
+        }
+        match service.update_status() {
+            Ok(detail) => eprintln!(
+                "real E2E (profile/diagnostics): update state={:?} current={:?} latest={:?}",
+                detail.state, detail.current, detail.latest
+            ),
+            Err(err) => {
+                eprintln!("real E2E (profile/diagnostics): update NOT-VERIFIED ({err})")
+            }
+        }
+        match service.agents() {
+            Ok(rows) => eprintln!(
+                "real E2E (profile/diagnostics): agents rows={} first={:?}",
+                rows.len(),
+                rows.first().map(|row| &row.id)
+            ),
+            Err(err) => {
+                eprintln!("real E2E (profile/diagnostics): agents NOT-VERIFIED ({err})")
+            }
+        }
+        match service.logs(50) {
+            Ok(result) => eprintln!(
+                "real E2E (profile/diagnostics): logs lines={} source={:?} truncated={}",
+                result.lines.len(),
+                result.source,
+                result.truncated
+            ),
+            Err(err) => {
+                eprintln!("real E2E (profile/diagnostics): logs NOT-VERIFIED ({err})")
+            }
+        }
     }
 
     /// Prints the config-schema baseline observations (informational).

@@ -405,6 +405,25 @@ impl AppError {
             ),
         )
     }
+
+    // --- Phase 8: profile / update / diagnostics --------------------------------
+
+    /// `openclaw agents list --json` failed (non-zero exit or top-level
+    /// malformed output).
+    pub fn openclaw_agents_read_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-agents-read-failed",
+            format!("reading the OpenClaw agents failed: {}", detail.into()),
+        )
+    }
+
+    /// `openclaw logs --limit <n> --json` failed (non-zero exit).
+    pub fn openclaw_logs_read_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-logs-read-failed",
+            format!("reading the OpenClaw logs failed: {}", detail.into()),
+        )
+    }
 }
 
 impl fmt::Display for AppError {
