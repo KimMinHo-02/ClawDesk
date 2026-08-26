@@ -367,6 +367,44 @@ impl AppError {
             format!("installing plugin {npm_id} failed: {}", detail.into()),
         )
     }
+
+    // --- Phase 7: automations ------------------------------------------------------
+
+    /// S2: the automation job id failed format validation before any process
+    /// run.
+    pub fn automation_id_invalid(id: &str) -> Self {
+        Self::invalid_input("automation-id-invalid", "job id", id)
+    }
+
+    /// S2: the automation job name failed validation (1–128 chars after
+    /// trimming, no control characters) before any process run.
+    pub fn automation_name_invalid(name: &str) -> Self {
+        Self::invalid_input("automation-name-invalid", "job name", name)
+    }
+
+    /// S2: the automation schedule (kind/value/timezone) failed validation
+    /// before any process run.
+    pub fn automation_schedule_invalid(detail: &str) -> Self {
+        Self::invalid_input("automation-schedule-invalid", "schedule", detail)
+    }
+
+    /// S2: the automation payload (kind/text/wake) failed validation before
+    /// any process run.
+    pub fn automation_payload_invalid(detail: &str) -> Self {
+        Self::invalid_input("automation-payload-invalid", "payload", detail)
+    }
+
+    /// `openclaw automations list/get/add/edit/enable/disable/remove` failed
+    /// (run or parse).
+    pub fn openclaw_automations_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "openclaw-automations-failed",
+            format!(
+                "the OpenClaw automations operation failed: {}",
+                detail.into()
+            ),
+        )
+    }
 }
 
 impl fmt::Display for AppError {

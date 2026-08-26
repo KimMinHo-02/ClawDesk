@@ -1,5 +1,6 @@
 //! Domain models (value types shared across layers).
 
+pub mod automations;
 pub mod channels;
 pub mod install;
 // `models` under `models` reads redundantly, but renaming would churn every
@@ -11,6 +12,13 @@ pub mod skills;
 pub mod tools;
 pub mod windows;
 
+pub use automations::{
+    parse_automation_job, parse_automation_job_row, parse_payload_view, parse_schedule_view,
+    validate_automation_id, validate_automation_name, validate_automation_payload,
+    validate_schedule, AutomationCreated, AutomationJob, AutomationJobList, AutomationJobRow,
+    AutomationPayloadView, AutomationScheduleView, PAYLOAD_KINDS, REMINDER_SESSION, SCHEDULE_KINDS,
+    TASK_SESSION, WAKE_VALUES,
+};
 pub use channels::{
     channel_allow_from_path, channel_dm_policy_path, channel_enabled_path,
     channel_group_policy_path, channel_secret_key_id, channel_secret_ref, channel_section_path,

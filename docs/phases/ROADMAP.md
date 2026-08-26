@@ -13,7 +13,7 @@ Phase는 선형으로 진행한다. 이전 phase exit criteria 미충족 시 다
 | 4     | Skills / Plugins                       | skills·plugins 목록과 활성화 관리                                                                                                   | completed   |
 | 5     | Tools / Security                       | tool permission, security profile                                                                                                   | completed   |
 | 6     | Channels                               | Discord/Telegram 채널 연결·설정                                                                                                     | completed   |
-| 7     | Automations                            | automation 관리 (생성/수정/삭제/활성화)                                                                                             | not started |
+| 7     | Automations                            | automation 관리 (생성/수정/삭제/활성화)                                                                                             | completed   |
 | 8     | Profile / Update / Diagnostics         | profile, OpenClaw update 상태, API 상태, diagnostics                                                                                | not started |
 | 9     | Integrated Chat                        | 앱 내 chat (모델별 reasoning effort)                                                                                                | not started |
 | 10    | Windows Release                        | NSIS installer, 코드사인, 릴리스 파이프라인                                                                                         | not started |

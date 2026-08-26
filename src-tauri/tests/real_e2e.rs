@@ -120,6 +120,28 @@ fn real_openclaw_channels_flow() {
     }
 }
 
+/// Phase 7 automations flow against the real OpenClaw — same triple gate.
+///
+/// Read-only list baseline plus a test-owned far-future reminder job
+/// round-trip (create → read-back → remove → absence check). `automations
+/// run`/`runs` (manual execution) are never invoked (non-goal); no user job
+/// is touched.
+#[test]
+fn real_openclaw_automations_flow() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (automations): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::automations_flow();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (automations): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
@@ -575,6 +597,96 @@ mod real {
             "discord token must be absent after delete"
         );
         eprintln!("real E2E (channels): discord token round-trip OK");
+    }
+
+    /// Phase 7: automations read-only list baseline + a test-owned job
+    /// round-trip (create a far-future reminder → get read-back → remove →
+    /// absence check).
+    ///
+    /// `automations run`/`runs` (manual execution) are never invoked
+    /// (non-goal). No user job is touched: only the job created by this run
+    /// is removed.
+    pub fn automations_flow() {
+        use clawdesk_lib::application::AutomationService;
+
+        let environment = EnvironmentService::production();
+        let report = environment
+            .detect_environment()
+            .expect("environment detection for automations E2E");
+        let OpenClawStatus::Detected { version, .. } = &report.openclaw else {
+            eprintln!("real E2E (automations): NOT-RUN (OpenClaw not detected)");
+            return;
+        };
+        eprintln!(
+            "real E2E (automations): OpenClaw detected (version: {:?})",
+            version
+        );
+
+        let service = AutomationService::production();
+
+        // Read-only baseline (informational — a live CLI shape change must
+        // not fail the flow, so failures are reported, not asserted).
+        match service.list_automations() {
+            Ok(rows) => eprintln!(
+                "real E2E (automations): list baseline rows={} first={:?}",
+                rows.len(),
+                rows.first().map(|row| &row.id)
+            ),
+            Err(err) => {
+                eprintln!("real E2E (automations): list baseline NOT-VERIFIED ({err})");
+                eprintln!("real E2E (automations): round-trip NOT-RUN (list read failed)");
+                return;
+            }
+        }
+
+        // Test-owned job round-trip: a far-future reminder (2099) that can
+        // never fire during the test.
+        let name = format!(
+            "clawdesk-e2e-automations-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        );
+        let job_id = service
+            .create_automation(
+                &name,
+                "at",
+                "2099-01-01T00:00:00Z",
+                None,
+                "reminder",
+                "real E2E test job",
+                None,
+            )
+            .unwrap_or_else(|err| panic!("test-owned automation create failed: {err}"));
+        eprintln!("real E2E (automations): created test-owned job {job_id}");
+
+        let job = service
+            .get_automation(&job_id)
+            .unwrap_or_else(|err| panic!("test-owned automation read failed: {err}"));
+        assert_eq!(
+            job.name.as_deref(),
+            Some(name.as_str()),
+            "job name must read back"
+        );
+        assert_eq!(
+            job.schedule.as_ref().map(|s| s.kind.as_str()),
+            Some("at"),
+            "job schedule kind must read back as at"
+        );
+
+        service
+            .remove_automation(&job_id)
+            .unwrap_or_else(|err| panic!("test-owned automation remove failed: {err}"));
+        assert!(
+            service
+                .list_automations()
+                .expect("list after remove")
+                .iter()
+                .all(|row| row.id != job_id),
+            "test-owned job must be gone after remove"
+        );
+        eprintln!("real E2E (automations): test-owned job round-trip OK");
     }
 
     /// Prints the config-schema baseline observations (informational).
