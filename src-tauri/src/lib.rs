@@ -51,7 +51,13 @@ pub fn run() {
             commands::channels::set_dm_access,
             commands::channels::set_group_policy,
             commands::channels::list_pairing_requests,
-            commands::channels::approve_pairing
+            commands::channels::approve_pairing,
+            commands::automations::get_automations,
+            commands::automations::get_automation,
+            commands::automations::create_automation,
+            commands::automations::update_automation,
+            commands::automations::set_automation_enabled,
+            commands::automations::delete_automation
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

@@ -2,6 +2,7 @@
 
 pub mod installer;
 pub mod openclaw;
+pub mod openclaw_automations;
 pub mod openclaw_channels;
 pub mod openclaw_config;
 pub mod openclaw_plugin_install;
@@ -15,6 +16,7 @@ pub mod windows_system;
 
 pub use installer::OpenClawInstallerPort;
 pub use openclaw::OpenClawPort;
+pub use openclaw_automations::OpenClawAutomationsPort;
 pub use openclaw_channels::OpenClawChannelsPort;
 pub use openclaw_config::{OpenClawConfigPort, WriteMode};
 pub use openclaw_plugin_install::OpenClawPluginInstallPort;

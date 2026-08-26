@@ -166,6 +166,34 @@ fn main() -> ExitCode {
     if args.len() == 4 && args[0] == "pairing" && args[1] == "approve" {
         return handle_pairing_approve(&args[2], &args[3]);
     }
+    if args.first().map(|a| a.as_str()) == Some("automations") {
+        let sub = args.get(1).map(|a| a.as_str()).unwrap_or("");
+        match sub {
+            "list" => return handle_automations_list(),
+            "get" => return handle_automations_get(args.get(2).map(|a| a.as_str()).unwrap_or("")),
+            "add" => return handle_automations_add(&args[2..]),
+            "edit" => return handle_automations_edit(&args[2..]),
+            "enable" => {
+                return handle_automations_toggle(
+                    "enable",
+                    args.get(2).map(|a| a.as_str()).unwrap_or(""),
+                )
+            }
+            "disable" => {
+                return handle_automations_toggle(
+                    "disable",
+                    args.get(2).map(|a| a.as_str()).unwrap_or(""),
+                )
+            }
+            "remove" => {
+                return handle_automations_remove(args.get(2).map(|a| a.as_str()).unwrap_or(""))
+            }
+            // `run`/`runs` (and anything else): intentionally unhandled —
+            // the non-goal regression gate falls through to the
+            // unsupported exit 2 below.
+            _ => {}
+        }
+    }
     eprintln!("fake-openclaw: unsupported command: {}", args.join(" "));
     ExitCode::from(2)
 }
@@ -1309,6 +1337,432 @@ fn handle_pairing_approve(channel: &str, code: &str) -> ExitCode {
     println!(
         r#"{{"ok":true,"code":{}}}"#,
         serde_json::to_string(code).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+// --- Phase 7: automations state simulation ---------------------------------
+//
+// State sections (sandbox `openclaw.json`):
+//
+// - `automations.jobs` — array of job objects
+//   `{id,name,enabled,status,nextRunAtMs,schedule:{kind,at|every|cron,tz?},
+//   payload:{kind,text,wake?}}`
+//
+// `automations run`/`runs` have NO handler (non-goal — the unsupported
+// exit 2 is the regression gate). Non-goal flags (`--command`, `--script`,
+// `--webhook`, `--model`, `--channel`, `--to`, ...) are rejected with
+// exit 2 exactly like an unsupported flag, so a regression that starts
+// emitting them is caught at the contract layer.
+
+/// Non-goal flags that must never be accepted by `automations add/edit`.
+const AUTOMATION_NON_GOAL_FLAGS: &[&str] = &[
+    "--command",
+    "--command-argv",
+    "--script",
+    "--trigger-script",
+    "--webhook",
+    "--model",
+    "--fallbacks",
+    "--thinking",
+    "--channel",
+    "--to",
+    "--thread-id",
+    "--account",
+    "--agent",
+];
+
+fn reject_non_goal_flags(args: &[String]) -> Option<&'static str> {
+    args.iter().find_map(|arg| {
+        AUTOMATION_NON_GOAL_FLAGS
+            .iter()
+            .find(|flag| **flag == arg.as_str())
+            .copied()
+    })
+}
+
+/// The `automations.jobs` array (read view).
+fn automation_jobs(state: &Value) -> Option<&Vec<Value>> {
+    state
+        .get("automations")
+        .and_then(|a| a.get("jobs"))
+        .and_then(|j| j.as_array())
+}
+
+/// The `automations.jobs` array (write view; created when absent).
+fn automation_jobs_mut(state: &mut Value) -> &mut Vec<Value> {
+    let automations = state
+        .as_object_mut()
+        .expect("state is an object")
+        .entry("automations")
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !automations.is_object() {
+        *automations = Value::Object(Map::new());
+    }
+    let jobs = automations
+        .as_object_mut()
+        .expect("automations normalized")
+        .entry("jobs")
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if !jobs.is_array() {
+        *jobs = Value::Array(Vec::new());
+    }
+    jobs.as_array_mut().expect("jobs normalized")
+}
+
+fn find_automation_id(state: &Value, id: &str) -> Option<usize> {
+    automation_jobs(state).and_then(|jobs| {
+        jobs.iter()
+            .position(|job| job.get("id").and_then(|v| v.as_str()) == Some(id))
+    })
+}
+
+fn handle_automations_list() -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let jobs = automation_jobs(&state).cloned().unwrap_or_default();
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(Map::from_iter([
+            ("ok".to_string(), Value::Bool(true)),
+            ("jobs".to_string(), Value::Array(jobs)),
+        ])))
+        .unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_automations_get(id: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    let (state, _path) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let Some(job) = automation_jobs(&state).and_then(|jobs| {
+        jobs.iter()
+            .find(|job| job.get("id").and_then(|v| v.as_str()) == Some(id))
+    }) else {
+        println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"unknown job: {id}"}}}}"#);
+        return ExitCode::from(1);
+    };
+    println!(
+        "{}",
+        serde_json::to_string(&Value::Object(Map::from_iter([
+            ("ok".to_string(), Value::Bool(true)),
+            ("job".to_string(), job.clone()),
+        ])))
+        .unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+/// The flag set shared by `automations add/edit`.
+#[derive(Default)]
+struct AutomationFlags {
+    name: Option<String>,
+    at: Option<String>,
+    every: Option<String>,
+    cron: Option<String>,
+    tz: Option<String>,
+    session: Option<String>,
+    system_event: Option<String>,
+    message: Option<String>,
+    wake: Option<String>,
+}
+
+/// Parses `--flag value` pairs; unknown arguments are an error.
+fn parse_automation_flags(args: &[String]) -> Result<AutomationFlags, String> {
+    let mut flags = AutomationFlags::default();
+    let mut index = 0usize;
+    while index < args.len() {
+        let key = args[index].as_str();
+        let mut next = |key: &str| -> Result<String, String> {
+            index += 1;
+            if index >= args.len() {
+                return Err(format!("missing value for {key}"));
+            }
+            Ok(args[index].clone())
+        };
+        match key {
+            "--name" => flags.name = Some(next(key)?),
+            "--at" => flags.at = Some(next(key)?),
+            "--every" => flags.every = Some(next(key)?),
+            "--cron" => flags.cron = Some(next(key)?),
+            "--tz" => flags.tz = Some(next(key)?),
+            "--session" => flags.session = Some(next(key)?),
+            "--system-event" => flags.system_event = Some(next(key)?),
+            "--message" => flags.message = Some(next(key)?),
+            "--wake" => flags.wake = Some(next(key)?),
+            "--json" => {}
+            other => {
+                if AUTOMATION_NON_GOAL_FLAGS.contains(&other) {
+                    return Err(format!("non-goal flag rejected: {other}"));
+                }
+                return Err(format!("unknown argument: {other}"));
+            }
+        }
+        index += 1;
+    }
+    Ok(flags)
+}
+
+/// Builds the `schedule` object from the flags (exactly one of at/every/cron;
+/// tz is cron-only — the fixed pairing).
+fn build_schedule(flags: &AutomationFlags) -> Result<Value, String> {
+    let (kind, value_key, value) = match (
+        flags.at.as_deref(),
+        flags.every.as_deref(),
+        flags.cron.as_deref(),
+    ) {
+        (Some(value), None, None) => ("at", "at", value),
+        (None, Some(value), None) => ("every", "every", value),
+        (None, None, Some(value)) => ("cron", "cron", value),
+        _ => {
+            return Err("exactly one of --at/--every/--cron is required".to_string());
+        }
+    };
+    let tz_allowed = kind == "cron";
+    if flags.tz.is_some() && !tz_allowed {
+        return Err("--tz is cron-only".to_string());
+    }
+    let mut map = Map::new();
+    map.insert("kind".to_string(), Value::String(kind.to_string()));
+    map.insert(value_key.to_string(), Value::String(value.to_string()));
+    if let Some(tz) = &flags.tz {
+        map.insert("tz".to_string(), Value::String(tz.clone()));
+    }
+    Ok(Value::Object(map))
+}
+
+/// Builds the `payload` object from the flags (exactly one of
+/// system-event/message; wake is reminder-only; the session pairing is
+/// fixed: reminder → `main`, task → `isolated`).
+fn build_payload(flags: &AutomationFlags) -> Result<Value, String> {
+    let (kind, text) = match (flags.system_event.as_deref(), flags.message.as_deref()) {
+        (Some(text), None) => ("reminder", text),
+        (None, Some(text)) => ("task", text),
+        _ => {
+            return Err("exactly one of --system-event/--message is required".to_string());
+        }
+    };
+    let expected_session = if kind == "reminder" {
+        "main"
+    } else {
+        "isolated"
+    };
+    if let Some(session) = &flags.session {
+        if session != expected_session {
+            return Err(format!("session {session} is not allowed for a {kind} job"));
+        }
+    }
+    if kind == "task" && flags.wake.is_some() {
+        return Err("--wake is reminder-only".to_string());
+    }
+    if let Some(wake) = &flags.wake {
+        if !matches!(wake.as_str(), "now" | "next-heartbeat") {
+            return Err(format!("invalid wake: {wake}"));
+        }
+    }
+    let mut payload = Map::new();
+    payload.insert("kind".to_string(), Value::String(kind.to_string()));
+    payload.insert("text".to_string(), Value::String(text.to_string()));
+    if kind == "reminder" {
+        payload.insert(
+            "wake".to_string(),
+            Value::String(flags.wake.clone().unwrap_or_else(|| "now".to_string())),
+        );
+    }
+    Ok(Value::Object(payload))
+}
+
+fn handle_automations_add(args: &[String]) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    if let Some(flag) = reject_non_goal_flags(args) {
+        eprintln!("fake-openclaw: automations add rejects non-goal flag {flag}");
+        return ExitCode::from(2);
+    }
+    let flags = match parse_automation_flags(args) {
+        Ok(flags) => flags,
+        Err(message) => {
+            eprintln!("fake-openclaw: automations add: {message}");
+            return ExitCode::from(2);
+        }
+    };
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let jobs = automation_jobs_mut(&mut state);
+    let next = jobs
+        .iter()
+        .filter_map(|job| {
+            job.get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|id| id.strip_prefix("job-"))
+                .and_then(|n| n.parse::<u64>().ok())
+        })
+        .max()
+        .unwrap_or(0)
+        + 1;
+    let id = format!("job-{next}");
+    let job = match (|| -> Result<Value, String> {
+        let name = flags.name.as_deref().ok_or("missing --name")?;
+        let schedule = build_schedule(&flags)?;
+        let payload = build_payload(&flags)?;
+        let mut map = Map::new();
+        map.insert("id".to_string(), Value::String(id.clone()));
+        map.insert("name".to_string(), Value::String(name.to_string()));
+        map.insert("enabled".to_string(), Value::Bool(true));
+        map.insert("status".to_string(), Value::String("ok".to_string()));
+        map.insert("nextRunAtMs".to_string(), Value::Null);
+        map.insert("schedule".to_string(), schedule);
+        map.insert("payload".to_string(), payload);
+        Ok(Value::Object(map))
+    })() {
+        Ok(job) => job,
+        Err(message) => {
+            println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"{message}"}}}}"#);
+            return ExitCode::from(1);
+        }
+    };
+    jobs.push(job);
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{}}}"#,
+        serde_json::to_string(&id).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_automations_edit(args: &[String]) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    if args.is_empty() {
+        eprintln!("fake-openclaw: automations edit needs <job-id>");
+        return ExitCode::from(2);
+    }
+    let (id, flag_args) = (args[0].as_str(), &args[1..]);
+    if let Some(flag) = reject_non_goal_flags(flag_args) {
+        eprintln!("fake-openclaw: automations edit rejects non-goal flag {flag}");
+        return ExitCode::from(2);
+    }
+    let flags = match parse_automation_flags(flag_args) {
+        Ok(flags) => flags,
+        Err(message) => {
+            eprintln!("fake-openclaw: automations edit: {message}");
+            return ExitCode::from(2);
+        }
+    };
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let Some(index) = find_automation_id(&state, id) else {
+        println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"unknown job: {id}"}}}}"#);
+        return ExitCode::from(1);
+    };
+    let result = (|| -> Result<(), String> {
+        // The edit carries the full definition (name + schedule + payload).
+        let name = flags.name.as_deref().ok_or("missing --name")?;
+        let schedule = build_schedule(&flags)?;
+        let payload = build_payload(&flags)?;
+        let job = state
+            .get_mut("automations")
+            .and_then(|a| a.get_mut("jobs"))
+            .and_then(|j| j.as_array_mut())
+            .and_then(|jobs| jobs.get_mut(index))
+            .and_then(|j| j.as_object_mut())
+            .ok_or("job object missing")?;
+        job.insert("name".to_string(), Value::String(name.to_string()));
+        job.insert("schedule".to_string(), schedule);
+        job.insert("payload".to_string(), payload);
+        Ok(())
+    })();
+    if let Err(message) = result {
+        println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"{message}"}}}}"#);
+        return ExitCode::from(1);
+    }
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{}}}"#,
+        serde_json::to_string(id).unwrap_or_default()
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_automations_toggle(action: &str, id: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    if id.is_empty() {
+        eprintln!("fake-openclaw: automations {action} needs <job-id>");
+        return ExitCode::from(2);
+    }
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let Some(index) = find_automation_id(&state, id) else {
+        println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"unknown job: {id}"}}}}"#);
+        return ExitCode::from(1);
+    };
+    let enabled = action == "enable";
+    let jobs = automation_jobs_mut(&mut state);
+    if let Some(job) = jobs.get_mut(index) {
+        job.as_object_mut()
+            .expect("job is an object")
+            .insert("enabled".to_string(), Value::Bool(enabled));
+    }
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{},"enabled":{}}}"#,
+        serde_json::to_string(id).unwrap_or_default(),
+        enabled
+    );
+    ExitCode::SUCCESS
+}
+
+fn handle_automations_remove(id: &str) -> ExitCode {
+    if let Some(code) = behavior_override() {
+        return code;
+    }
+    if id.is_empty() {
+        eprintln!("fake-openclaw: automations remove needs <job-id>");
+        return ExitCode::from(2);
+    }
+    let (mut state, state_file) = match load_state() {
+        Ok(pair) => pair,
+        Err(code) => return code,
+    };
+    let jobs = automation_jobs_mut(&mut state);
+    let before = jobs.len();
+    jobs.retain(|job| job.get("id").and_then(|v| v.as_str()) != Some(id));
+    if jobs.len() == before {
+        println!(r#"{{"ok":false,"error":{{"type":"cli_error","message":"unknown job: {id}"}}}}"#);
+        return ExitCode::from(1);
+    }
+    if save_state(&state, &state_file).is_err() {
+        return ExitCode::from(1);
+    }
+    println!(
+        r#"{{"ok":true,"id":{}}}"#,
+        serde_json::to_string(id).unwrap_or_default()
     );
     ExitCode::SUCCESS
 }

@@ -1,6 +1,7 @@
 //! OpenClaw infrastructure adapters.
 
 pub mod adapter;
+pub mod automations;
 pub mod channels;
 pub mod config;
 pub mod installer;
@@ -11,6 +12,7 @@ pub mod security;
 pub mod skills;
 
 pub use adapter::OpenClawAdapter;
+pub use automations::OpenClawAutomationsAdapter;
 pub use channels::OpenClawChannelsAdapter;
 pub use config::OpenClawConfigAdapter;
 pub use installer::{node_version_supported, npm_install_policy, OpenClawInstaller};

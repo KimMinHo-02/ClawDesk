@@ -1,6 +1,7 @@
 //! Services exposed to the use case layer.
 
 pub mod api_key;
+pub mod automations;
 pub mod channel_token;
 pub mod channels;
 pub mod environment;
@@ -12,6 +13,7 @@ pub mod skills;
 pub mod tools;
 
 pub use api_key::ApiKeyService;
+pub use automations::AutomationService;
 pub use channel_token::ChannelTokenService;
 pub use channels::ChannelService;
 pub use environment::EnvironmentService;

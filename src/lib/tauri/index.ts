@@ -51,6 +51,12 @@ export const COMMANDS = {
   setGroupPolicy: "set-group-policy",
   listPairingRequests: "list-pairing-requests",
   approvePairing: "approve-pairing",
+  getAutomations: "get-automations",
+  getAutomation: "get-automation",
+  createAutomation: "create-automation",
+  updateAutomation: "update-automation",
+  setAutomationEnabled: "set-automation-enabled",
+  deleteAutomation: "delete-automation",
 } as const;
 
 // --- Wire types (mirror the serde shapes in `src-tauri`) --------------------
@@ -376,6 +382,70 @@ export interface PairingRequest {
   sender: string | null;
 }
 
+// --- Phase 7 wire types ------------------------------------------------------
+//
+// Read-side fail-soft: `name`/`enabled`/`status`/`schedule`/`payload` arrive
+// as `null` when the CLI omits them, and unknown raw values are kept (the
+// write-side enums gate user input only). The session field never crosses the
+// wire — the Rust layer fixes the pairing by payload kind.
+
+/** The schedule kinds ClawDesk manages (contract: `at`/`every`/`cron` only). */
+export const SCHEDULE_KINDS = ["at", "every", "cron"] as const;
+export type ScheduleKind = (typeof SCHEDULE_KINDS)[number];
+
+/** The payload kinds ClawDesk manages (contract: `reminder`/`task` only). */
+export const PAYLOAD_KINDS = ["reminder", "task"] as const;
+export type PayloadKind = (typeof PAYLOAD_KINDS)[number];
+
+/** The reminder wake values. */
+export const WAKE_VALUES = ["now", "next-heartbeat"] as const;
+export type WakeValue = (typeof WAKE_VALUES)[number];
+
+/** Best-effort schedule view of a job (fail-soft; unknown shapes are `null`). */
+export interface AutomationScheduleView {
+  kind: string;
+  value: string | null;
+  tz: string | null;
+}
+
+/** Best-effort payload view of a job (fail-soft; unknown shapes are `null`). */
+export interface AutomationPayloadView {
+  kind: string;
+  text: string | null;
+}
+
+/** One row of `openclaw automations list --all --json` (fail-soft). */
+export interface AutomationJobRow {
+  id: string;
+  name: string | null;
+  enabled: boolean | null;
+  /** Raw status (`null` when absent); unknown values are kept. */
+  status: string | null;
+  nextRunAtMs: number | null;
+  schedule: AutomationScheduleView | null;
+  payload: AutomationPayloadView | null;
+}
+
+/** The `get-automation` detail (fail-soft). */
+export interface AutomationJob {
+  id: string;
+  name: string | null;
+  enabled: boolean | null;
+  status: string | null;
+  schedule: AutomationScheduleView | null;
+  payload: AutomationPayloadView | null;
+}
+
+/** `get-automations` response. */
+export interface AutomationJobList {
+  jobs: AutomationJobRow[];
+}
+
+/** `create-automation` response. */
+export interface AutomationCreated {
+  jobId: string;
+}
+
 /**
  * Unified Rust `AppError` serialized across IPC: stable machine-readable
  * `code` plus a masked `message` (S3/S8). The frontend maps `code` to a
@@ -669,4 +739,74 @@ export async function listPairingRequests(channel: string): Promise<PairingReque
 /** `approve-pairing`: channel + code validated before the CLI call. */
 export async function approvePairing(channel: string, code: string): Promise<void> {
   return invoke<void>(COMMANDS.approvePairing, { channel, code });
+}
+
+// --- Phase 7 command wrappers ------------------------------------------------
+
+/** `get-automations`: all job rows including disabled (read-only). */
+export async function getAutomations(): Promise<AutomationJobList> {
+  return invoke<AutomationJobList>(COMMANDS.getAutomations);
+}
+
+/** `get-automation`: one job detail (id pre-validated, fail-closed). */
+export async function getAutomation(jobId: string): Promise<AutomationJob> {
+  return invoke<AutomationJob>(COMMANDS.getAutomation, { jobId });
+}
+
+/** `create-automation`: reminder or task. The session pairing is fixed in
+ * Rust (the wire carries no session field). All inputs are format-validated
+ * in Rust before any CLI call (S2). Returns the new job id.
+ */
+export async function createAutomation(
+  name: string,
+  scheduleKind: string,
+  scheduleValue: string,
+  scheduleTz: string | null,
+  payloadKind: string,
+  text: string,
+  wake: string | null,
+): Promise<AutomationCreated> {
+  return invoke<AutomationCreated>(COMMANDS.createAutomation, {
+    name,
+    scheduleKind,
+    scheduleValue,
+    scheduleTz,
+    payloadKind,
+    text,
+    wake,
+  });
+}
+
+/** `update-automation`: same field set as create; the payload kind cannot
+ * change (kind change = delete + recreate, blocked by the UI). */
+export async function updateAutomation(
+  jobId: string,
+  name: string,
+  scheduleKind: string,
+  scheduleValue: string,
+  scheduleTz: string | null,
+  payloadKind: string,
+  text: string,
+  wake: string | null,
+): Promise<void> {
+  return invoke<void>(COMMANDS.updateAutomation, {
+    jobId,
+    name,
+    scheduleKind,
+    scheduleValue,
+    scheduleTz,
+    payloadKind,
+    text,
+    wake,
+  });
+}
+
+/** `set-automation-enabled`: `automations enable|disable <jobId> --json`. */
+export async function setAutomationEnabled(jobId: string, enabled: boolean): Promise<void> {
+  return invoke<void>(COMMANDS.setAutomationEnabled, { jobId, enabled });
+}
+
+/** `delete-automation`: `automations remove <jobId> --json`. */
+export async function deleteAutomation(jobId: string): Promise<void> {
+  return invoke<void>(COMMANDS.deleteAutomation, { jobId });
 }

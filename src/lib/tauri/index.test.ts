@@ -11,9 +11,13 @@ import {
   applySecurityProfile,
   approvePairing,
   connectChannel,
+  createAutomation,
+  deleteAutomation,
   deleteChannelToken,
   deleteSecurityProfile,
   detectEnvironment,
+  getAutomation,
+  getAutomations,
   getChannelConfig,
   getChannels,
   getPluginRuntime,
@@ -27,6 +31,7 @@ import {
   normalizeAppError,
   runSecurityAudit,
   saveSecurityProfile,
+  setAutomationEnabled,
   setChannelEnabled,
   setChannelToken,
   setDmAccess,
@@ -37,6 +42,7 @@ import {
   setToolAllow,
   setToolDeny,
   setToolProfile,
+  updateAutomation,
   type EnvironmentReport,
 } from "./index";
 
@@ -76,6 +82,12 @@ describe("COMMANDS", () => {
     expect(COMMANDS.setGroupPolicy).toBe("set-group-policy");
     expect(COMMANDS.listPairingRequests).toBe("list-pairing-requests");
     expect(COMMANDS.approvePairing).toBe("approve-pairing");
+    expect(COMMANDS.getAutomations).toBe("get-automations");
+    expect(COMMANDS.getAutomation).toBe("get-automation");
+    expect(COMMANDS.createAutomation).toBe("create-automation");
+    expect(COMMANDS.updateAutomation).toBe("update-automation");
+    expect(COMMANDS.setAutomationEnabled).toBe("set-automation-enabled");
+    expect(COMMANDS.deleteAutomation).toBe("delete-automation");
   });
 });
 
@@ -367,6 +379,104 @@ describe("Phase 6 wrappers", () => {
       channel: "discord",
       code: "abcd1234",
     });
+  });
+});
+
+describe("Phase 7 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("getAutomations invokes get-automations without arguments", async () => {
+    const list = {
+      jobs: [
+        {
+          id: "job-1",
+          name: "standup",
+          enabled: true,
+          status: "ok",
+          nextRunAtMs: 1798761600000,
+          schedule: { kind: "at", value: "2027-01-01T00:00:00Z", tz: null },
+          payload: { kind: "reminder", text: "standup 시간" },
+        },
+        {
+          id: "job-2",
+          name: null,
+          enabled: false,
+          status: null,
+          nextRunAtMs: null,
+          schedule: null,
+          payload: null,
+        },
+      ],
+    };
+    mockInvoke.mockResolvedValueOnce(list);
+    await expect(getAutomations()).resolves.toBe(list);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("get-automations");
+  });
+
+  it("getAutomation invokes get-automation with jobId", async () => {
+    const job = {
+      id: "job-1",
+      name: "standup",
+      enabled: true,
+      status: "ok",
+      schedule: { kind: "cron", value: "0 9 * * *", tz: "Asia/Seoul" },
+      payload: { kind: "task", text: "日报 생성" },
+    };
+    mockInvoke.mockResolvedValueOnce(job);
+    await expect(getAutomation("job-1")).resolves.toBe(job);
+    expect(mockInvoke).toHaveBeenCalledWith("get-automation", { jobId: "job-1" });
+  });
+
+  it("createAutomation invokes create-automation with camelCase arguments (no session field)", async () => {
+    const created = { jobId: "job-9" };
+    mockInvoke.mockResolvedValueOnce(created);
+    await expect(
+      createAutomation("standup", "at", "2027-01-01T00:00:00Z", null, "reminder", "standup 시간", "now"),
+    ).resolves.toBe(created);
+    expect(mockInvoke).toHaveBeenCalledWith("create-automation", {
+      name: "standup",
+      scheduleKind: "at",
+      scheduleValue: "2027-01-01T00:00:00Z",
+      scheduleTz: null,
+      payloadKind: "reminder",
+      text: "standup 시간",
+      wake: "now",
+    });
+  });
+
+  it("updateAutomation invokes update-automation with jobId and camelCase arguments", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(
+      updateAutomation("job-1", "standup 2", "cron", "0 9 * * *", "Asia/Seoul", "reminder", "standup 시간", null),
+    ).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("update-automation", {
+      jobId: "job-1",
+      name: "standup 2",
+      scheduleKind: "cron",
+      scheduleValue: "0 9 * * *",
+      scheduleTz: "Asia/Seoul",
+      payloadKind: "reminder",
+      text: "standup 시간",
+      wake: null,
+    });
+  });
+
+  it("setAutomationEnabled invokes set-automation-enabled with jobId and enabled", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(setAutomationEnabled("job-1", false)).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("set-automation-enabled", {
+      jobId: "job-1",
+      enabled: false,
+    });
+  });
+
+  it("deleteAutomation invokes delete-automation with jobId", async () => {
+    mockInvoke.mockResolvedValueOnce(undefined);
+    await expect(deleteAutomation("job-1")).resolves.toBeUndefined();
+    expect(mockInvoke).toHaveBeenCalledWith("delete-automation", { jobId: "job-1" });
   });
 });
 
