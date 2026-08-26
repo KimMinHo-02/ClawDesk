@@ -1,6 +1,7 @@
 //! Domain ports (adapter interfaces).
 
 pub mod installer;
+pub mod node_update;
 pub mod openclaw;
 pub mod openclaw_automations;
 pub mod openclaw_channels;
@@ -16,6 +17,7 @@ pub mod security_profile_store;
 pub mod windows_system;
 
 pub use installer::OpenClawInstallerPort;
+pub use node_update::NodeUpdatePort;
 pub use openclaw::OpenClawPort;
 pub use openclaw_automations::OpenClawAutomationsPort;
 pub use openclaw_channels::OpenClawChannelsPort;

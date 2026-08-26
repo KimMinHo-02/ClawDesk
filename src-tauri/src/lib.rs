@@ -61,7 +61,8 @@ pub fn run() {
             commands::diagnostics::get_gateway_status,
             commands::diagnostics::get_update_status,
             commands::diagnostics::get_agents,
-            commands::diagnostics::get_logs
+            commands::diagnostics::get_logs,
+            commands::node_update::update_node
         ])
         .run(tauri::generate_context!())
         .expect("error while running ClawDesk");

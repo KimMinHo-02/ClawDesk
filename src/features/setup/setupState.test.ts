@@ -3,8 +3,10 @@ import { getStrings } from "../../i18n/ko";
 import type { EnvironmentReport, NodeDetection, OpenClawStatus } from "../../lib/tauri";
 import {
   canInstall,
+  errorCodeOf,
   errorToMessage,
   isNodeSupported,
+  isNodeUpdateNeeded,
   nodeStateOf,
   openclawStateOf,
 } from "./setupState";
@@ -79,6 +81,37 @@ describe("nodeStateOf", () => {
       kind: "unsupported",
       version: "23.0.0",
     });
+  });
+});
+
+describe("isNodeUpdateNeeded (Phase 8.1 one-shot update offer)", () => {
+  it("offers the update only for a PRESENT but unsupported Node", () => {
+    expect(isNodeUpdateNeeded({ status: "found", version: "18.19.0" })).toBe(true);
+    expect(isNodeUpdateNeeded({ status: "found", version: "23.0.0" })).toBe(true);
+  });
+
+  it("does not offer the update for a supported Node", () => {
+    expect(isNodeUpdateNeeded({ status: "found", version: "22.22.3" })).toBe(false);
+    expect(isNodeUpdateNeeded({ status: "found", version: "24.15.0" })).toBe(false);
+  });
+
+  it("does not auto-install a missing Node (Phase 2 contract)", () => {
+    expect(isNodeUpdateNeeded({ status: "not-found" })).toBe(false);
+  });
+});
+
+describe("errorCodeOf (stable code extraction)", () => {
+  it("returns the code of a structured AppError rejection", () => {
+    expect(errorCodeOf({ code: "unsupported-node-version", message: "detail" })).toBe(
+      "unsupported-node-version",
+    );
+  });
+
+  it("returns undefined for non-AppError rejections", () => {
+    expect(errorCodeOf("raw string")).toBeUndefined();
+    expect(errorCodeOf(new Error("boom"))).toBeUndefined();
+    expect(errorCodeOf({ code: "node-not-found" })).toBeUndefined();
+    expect(errorCodeOf(undefined)).toBeUndefined();
   });
 });
 

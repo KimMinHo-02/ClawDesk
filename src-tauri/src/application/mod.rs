@@ -12,6 +12,7 @@ pub use services::environment::{
 };
 pub use services::install::{InstallResult, InstallService};
 pub use services::models::{ModelInput, ModelService, ProviderInput};
+pub use services::node_update::NodeUpdateService;
 pub use services::plugins::PluginsService;
 pub use services::security::{SecurityProfileList, SecurityProfileService};
 pub use services::skills::SkillsService;

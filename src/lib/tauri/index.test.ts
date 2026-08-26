@@ -47,6 +47,7 @@ import {
   setToolDeny,
   setToolProfile,
   updateAutomation,
+  updateNode,
   type EnvironmentReport,
 } from "./index";
 
@@ -96,6 +97,7 @@ describe("COMMANDS", () => {
     expect(COMMANDS.getUpdateStatus).toBe("get-update-status");
     expect(COMMANDS.getAgents).toBe("get-agents");
     expect(COMMANDS.getLogs).toBe("get-logs");
+    expect(COMMANDS.updateNode).toBe("update-node");
   });
 });
 
@@ -531,6 +533,27 @@ describe("Phase 8 wrappers", () => {
     mockInvoke.mockResolvedValueOnce(result);
     await expect(getLogs(50)).resolves.toBe(result);
     expect(mockInvoke).toHaveBeenCalledWith("get-logs", { limit: 50 });
+  });
+});
+
+describe("Phase 8.1 wrappers", () => {
+  beforeEach(() => {
+    mockInvoke.mockReset();
+  });
+
+  it("updateNode invokes update-node without arguments and resolves the detection", async () => {
+    const detected = { status: "found" as const, version: "24.15.0" };
+    mockInvoke.mockResolvedValueOnce(detected);
+    await expect(updateNode()).resolves.toBe(detected);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    expect(mockInvoke).toHaveBeenCalledWith("update-node");
+  });
+
+  it("updateNode passes through the not-found detection shape", async () => {
+    const detected = { status: "not-found" as const };
+    mockInvoke.mockResolvedValueOnce(detected);
+    await expect(updateNode()).resolves.toBe(detected);
+    expect(mockInvoke).toHaveBeenCalledWith("update-node");
   });
 });
 

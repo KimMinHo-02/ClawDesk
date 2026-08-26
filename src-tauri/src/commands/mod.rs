@@ -14,6 +14,7 @@ pub mod automations;
 pub mod channels;
 pub mod diagnostics;
 pub mod models;
+pub mod node_update;
 pub mod plugins;
 pub mod security;
 pub mod skills;

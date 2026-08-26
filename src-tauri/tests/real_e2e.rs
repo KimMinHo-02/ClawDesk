@@ -166,13 +166,35 @@ fn real_openclaw_profile_diagnostics_flow() {
     }
 }
 
+/// Phase 8.1 node/winget baseline — same triple gate.
+///
+/// Read-only exclusively: Node.js detection + support decision + the
+/// `winget --version` availability probe. No real winget install is ever
+/// run here (the one-shot update is a manual smoke / explicit user action
+/// only).
+#[test]
+fn real_node_update_baseline() {
+    if !real_e2e_enabled() {
+        eprintln!("real E2E (node baseline): NOT-RUN (CLAWDESK_REAL_E2E=1 not set)");
+        return;
+    }
+    #[cfg(feature = "real-e2e")]
+    {
+        real::node_update_baseline();
+    }
+    #[cfg(not(feature = "real-e2e"))]
+    {
+        eprintln!("real E2E (node baseline): NOT-RUN (real-e2e feature not enabled)");
+    }
+}
+
 fn real_e2e_enabled() -> bool {
     std::env::var("CLAWDESK_REAL_E2E").is_ok_and(|value| value == "1")
 }
 
 #[cfg(feature = "real-e2e")]
 mod real {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -181,10 +203,11 @@ mod real {
         EnvironmentService, InstallResult, InstallService, ModelInput, ModelService, ProviderInput,
     };
     use clawdesk_lib::domain::models::channels::ChannelTokenState;
+    use clawdesk_lib::domain::models::windows::NodeDetection;
     use clawdesk_lib::domain::models::OpenClawStatus;
-    use clawdesk_lib::domain::ports::process::{ProcessPort, ProcessRequest};
+    use clawdesk_lib::domain::ports::process::{ProcessError, ProcessPort, ProcessRequest};
     use clawdesk_lib::domain::ports::{OpenClawInstallerPort, WindowsSystemPort};
-    use clawdesk_lib::infrastructure::openclaw::OpenClawInstaller;
+    use clawdesk_lib::infrastructure::openclaw::{node_version_supported, OpenClawInstaller};
     use clawdesk_lib::infrastructure::process::ProcessRunner;
     use clawdesk_lib::infrastructure::windows::WindowsSystemAdapter;
 
@@ -771,6 +794,62 @@ mod real {
             ),
             Err(err) => {
                 eprintln!("real E2E (profile/diagnostics): logs NOT-VERIFIED ({err})")
+            }
+        }
+    }
+
+    /// Phase 8.1: read-only Node/winget baseline (mutation 0).
+    ///
+    /// Informational — a live environment difference must not fail the flow
+    /// (NOT-VERIFIED on failure, not asserted). No real winget install is
+    /// ever run here.
+    pub fn node_update_baseline() {
+        let windows: Arc<dyn WindowsSystemPort> =
+            Arc::new(WindowsSystemAdapter::new(Arc::new(ProcessRunner)));
+        let node = windows
+            .detect_node()
+            .expect("node detection for the baseline");
+        match &node {
+            NodeDetection::Found { version } => {
+                let supported = node_version_supported(version);
+                eprintln!("real E2E (node baseline): node v{version} supported={supported}");
+            }
+            NodeDetection::NotFound => {
+                eprintln!("real E2E (node baseline): node NOT-VERIFIED (not detected)");
+            }
+        }
+
+        let request = ProcessRequest::new(
+            PathBuf::from("winget"),
+            vec!["--version".to_string()],
+            Duration::from_secs(10),
+        );
+        match ProcessRunner.run(&request) {
+            Ok(output) if output.exit_code == 0 => {
+                let version = output
+                    .stdout
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| !line.is_empty())
+                    .unwrap_or("");
+                eprintln!("real E2E (node baseline): winget available ({version})");
+            }
+            Ok(output) => eprintln!(
+                "real E2E (node baseline): winget NOT-VERIFIED (probe exit {})",
+                output.exit_code
+            ),
+            Err(ProcessError::NotFound { executable }) => {
+                eprintln!(
+                    "real E2E (node baseline): winget NOT-VERIFIED (not found: {executable})"
+                );
+            }
+            Err(ProcessError::Timeout { executable }) => {
+                eprintln!("real E2E (node baseline): winget NOT-VERIFIED (timeout: {executable})");
+            }
+            Err(ProcessError::SpawnFailed { message }) => {
+                eprintln!(
+                    "real E2E (node baseline): winget NOT-VERIFIED (spawn failed: {message})"
+                );
             }
         }
     }

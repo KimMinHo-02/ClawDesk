@@ -26,6 +26,8 @@ export const ko = {
     nodeNotInstalled: "Node.js가 설치되어 있지 않습니다. Node.js(22.22.3 이상)를 설치한 후 다시 시도해 주세요.",
     nodeUnsupported: "지원되지 않는 Node.js 버전입니다. (지원: 22.22.3+, 24.15+, 25.9+, 26+)",
     nodeVersion: "Node.js 버전",
+    nodeUpdateButton: "Node.js 업데이트",
+    nodeUpdating: "Node.js 업데이트 중입니다... (최대 15분까지 소요될 수 있습니다)",
     installButton: "OpenClaw 설치",
     installing: "OpenClaw 설치 중입니다... (최대 15분까지 소요될 수 있습니다)",
     installed: "OpenClaw가 설치되었습니다.",
@@ -46,6 +48,12 @@ export const ko = {
       "openclaw-install-verify-failed":
         "OpenClaw 설치 후 검증에 실패했습니다. 다시 시도해 주세요.",
       "process-timeout": "작업이 시간 내로 완료되지 않았습니다. 다시 시도해 주세요.",
+      "winget-not-found":
+        "이 시스템에서는 winget 패키지 매니저를 찾을 수 없습니다. Node.js를 수동으로 설치해 주세요.",
+      "node-update-failed":
+        "Node.js 업데이트에 실패했습니다. 네트워크 연결을 확인한 후 다시 시도해 주세요.",
+      "node-update-not-needed":
+        "현재 Node.js 버전은 이미 지원되는 범위입니다. 업데이트가 필요하지 않습니다.",
       fallback: "설치 중 오류가 발생했습니다. 다시 시도해 주세요.",
     },
   },

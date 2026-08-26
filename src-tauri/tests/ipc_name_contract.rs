@@ -9,7 +9,7 @@
 //! 에 등록되어 있는지를 검증한다.
 //!
 //! 계약의 frontend 측 single source of truth: `src/lib/tauri/index.ts`
-//! 의 `COMMANDS` object (49개).
+//! 의 `COMMANDS` object (50개).
 
 /// (generate_handler! 내 fn path, frontend kebab-case name) —
 /// `src/lib/tauri/index.ts` COMMANDS와 1:1.
@@ -126,6 +126,7 @@ const IPC_CONTRACT: &[(&str, &str)] = &[
     ),
     ("commands::diagnostics::get_agents", "get-agents"),
     ("commands::diagnostics::get_logs", "get-logs"),
+    ("commands::node_update::update_node", "update-node"),
 ];
 
 /// 각 command fn ident의 tauri-macros `__tauri_command_name_<ident>!()` —
@@ -181,6 +182,7 @@ fn registered_names() -> Vec<&'static str> {
         clawdesk_lib::__tauri_command_name_get_update_status!(),
         clawdesk_lib::__tauri_command_name_get_agents!(),
         clawdesk_lib::__tauri_command_name_get_logs!(),
+        clawdesk_lib::__tauri_command_name_update_node!(),
     ]
 }
 

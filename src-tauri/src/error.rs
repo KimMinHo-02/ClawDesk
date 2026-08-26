@@ -424,6 +424,37 @@ impl AppError {
             format!("reading the OpenClaw logs failed: {}", detail.into()),
         )
     }
+
+    // --- Phase 8.1: node update --------------------------------------------------
+
+    /// The `winget` executable is not available on this system.
+    pub fn winget_not_found() -> Self {
+        Self::new(
+            "winget-not-found",
+            "the winget package manager was not found on this system",
+        )
+    }
+
+    /// The one-shot Node.js update failed (winget non-zero, re-detection
+    /// still unsupported, or Node no longer detectable).
+    pub fn node_update_failed(detail: impl Into<String>) -> Self {
+        Self::new(
+            "node-update-failed",
+            format!("updating Node.js failed: {}", detail.into()),
+        )
+    }
+
+    /// The detected Node.js already satisfies the supported range — no
+    /// update (and no OS mutation) is performed.
+    pub fn node_update_not_needed(version: impl Into<String>) -> Self {
+        Self::new(
+            "node-update-not-needed",
+            format!(
+                "Node.js {version} already satisfies the supported range",
+                version = version.into()
+            ),
+        )
+    }
 }
 
 impl fmt::Display for AppError {
