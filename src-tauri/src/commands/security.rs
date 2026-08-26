@@ -23,7 +23,7 @@ where
 /// Builtins + user profiles + applied-state determination. A tool-policy
 /// read failure degrades to `policyReadFailed: true` (the list is still
 /// shown); a corrupt profile store is a stable error.
-#[tauri::command]
+#[tauri::command(rename = "list-security-profiles")]
 pub async fn list_security_profiles() -> Result<SecurityProfileList, AppError> {
     let service = SecurityProfileService::production();
     run_blocking(move || service.list_security_profiles()).await
@@ -31,7 +31,7 @@ pub async fn list_security_profiles() -> Result<SecurityProfileList, AppError> {
 
 /// Inserts or replaces a user profile (upsert). Builtins are immutable
 /// (`security-profile-conflict`). No config write happens on save.
-#[tauri::command]
+#[tauri::command(rename = "save-security-profile")]
 pub async fn save_security_profile(profile: SecurityProfile) -> Result<(), AppError> {
     let service = SecurityProfileService::production();
     run_blocking(move || service.save_security_profile(&profile)).await
@@ -39,7 +39,7 @@ pub async fn save_security_profile(profile: SecurityProfile) -> Result<(), AppEr
 
 /// Deletes a user profile. Builtin ids and unknown ids are
 /// `security-profile-not-found`.
-#[tauri::command]
+#[tauri::command(rename = "delete-security-profile")]
 pub async fn delete_security_profile(profile_id: String) -> Result<(), AppError> {
     let service = SecurityProfileService::production();
     run_blocking(move || service.delete_security_profile(&profile_id)).await
@@ -48,7 +48,7 @@ pub async fn delete_security_profile(profile_id: String) -> Result<(), AppError>
 /// Applies the profile's four fields to the OpenClaw config, in a fixed
 /// order (each dry-run → commit). On failure the UI re-queries the actual
 /// state (no optimistic updates).
-#[tauri::command]
+#[tauri::command(rename = "apply-security-profile")]
 pub async fn apply_security_profile(profile_id: String) -> Result<(), AppError> {
     let service = SecurityProfileService::production();
     run_blocking(move || service.apply_security_profile(&profile_id)).await
@@ -57,7 +57,7 @@ pub async fn apply_security_profile(profile_id: String) -> Result<(), AppError> 
 /// Cold, read-only security audit (`openclaw security audit --json`).
 /// Never `--deep`/`--fix`/`--token`/`--password`. On failure the UI shows
 /// "audit failed" — it never assumes a clean state.
-#[tauri::command]
+#[tauri::command(rename = "run-security-audit")]
 pub async fn run_security_audit() -> Result<SecurityAuditResult, AppError> {
     let service = SecurityProfileService::production();
     run_blocking(move || service.run_security_audit()).await

@@ -24,7 +24,7 @@ where
 }
 
 /// `get-automations`: all job rows including disabled (read-only).
-#[tauri::command]
+#[tauri::command(rename = "get-automations")]
 pub async fn get_automations() -> Result<AutomationJobList, AppError> {
     let service = AutomationService::production();
     run_blocking(move || {
@@ -36,7 +36,7 @@ pub async fn get_automations() -> Result<AutomationJobList, AppError> {
 }
 
 /// `get-automation`: one job detail (id pre-validated, fail-closed).
-#[tauri::command]
+#[tauri::command(rename = "get-automation")]
 pub async fn get_automation(job_id: String) -> Result<AutomationJob, AppError> {
     let service = AutomationService::production();
     run_blocking(move || service.get_automation(&job_id)).await
@@ -46,7 +46,7 @@ pub async fn get_automation(job_id: String) -> Result<AutomationJob, AppError> {
 /// task (`--message` + `isolated` session); the pairing is fixed in Rust.
 /// Returns the new job id (fail-soft extraction — a missing id is a
 /// structured error).
-#[tauri::command]
+#[tauri::command(rename = "create-automation")]
 pub async fn create_automation(
     name: String,
     schedule_kind: String,
@@ -74,7 +74,7 @@ pub async fn create_automation(
 
 /// `update-automation`: same field set as create; the payload kind cannot
 /// change (kind change = delete + recreate, blocked by the UI).
-#[tauri::command]
+#[tauri::command(rename = "update-automation")]
 #[allow(clippy::too_many_arguments)] // the Phase 7 contract fixes this field set
 pub async fn update_automation(
     job_id: String,
@@ -103,14 +103,14 @@ pub async fn update_automation(
 }
 
 /// `set-automation-enabled`: `automations enable|disable <jobId> --json`.
-#[tauri::command]
+#[tauri::command(rename = "set-automation-enabled")]
 pub async fn set_automation_enabled(job_id: String, enabled: bool) -> Result<(), AppError> {
     let service = AutomationService::production();
     run_blocking(move || service.set_automation_enabled(&job_id, enabled)).await
 }
 
 /// `delete-automation`: `automations remove <jobId> --json`.
-#[tauri::command]
+#[tauri::command(rename = "delete-automation")]
 pub async fn delete_automation(job_id: String) -> Result<(), AppError> {
     let service = AutomationService::production();
     run_blocking(move || service.remove_automation(&job_id)).await

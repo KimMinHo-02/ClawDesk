@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "ClawDesk - OpenClaw desktop manager (Phase 0 scaffold)"
 authors = ["ClawDesk"]
 edition = "2021"
+default-run = "clawdesk"
 
 [lib]
 name = "clawdesk_lib"
